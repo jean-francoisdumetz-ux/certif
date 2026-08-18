@@ -1,8 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": "Vercel sert TOUT le dépôt en fichiers statiques, sauf api/ qui devient des fonctions. Sans la liste ci-dessous, https://certif.../data/polices/segoeui.ttf se télécharge : les polices Microsoft, le papier en-tête, la signature Outlook et les pièces d'essai sont publics, sans authentification Entra. On ne peut pas les retirer du déploiement (.vercelignore) : les fonctions les lisent sur le disque à l'exécution. Les redirections, elles, sont évaluées AVANT le système de fichiers — c'est le seul point où l'on peut couper l'accès sans casser la génération.",
-
   "redirects": [
     { "source": "/data", "destination": "/", "permanent": false },
     { "source": "/data/:chemin*", "destination": "/", "permanent": false },
@@ -10,9 +7,11 @@
     { "source": "/essais/:chemin*", "destination": "/", "permanent": false },
     { "source": "/outils/:chemin*", "destination": "/", "permanent": false },
     { "source": "/node_modules/:chemin*", "destination": "/", "permanent": false },
-    { "source": "/:fichier([^/]+\\.(?:js|mjs|json|md|lock|html))", "destination": "/", "permanent": false }
+    { "source": "/package.json", "destination": "/", "permanent": false },
+    { "source": "/package-lock.json", "destination": "/", "permanent": false },
+    { "source": "/vercel.json", "destination": "/", "permanent": false },
+    { "source": "/LISEZ-MOI.md", "destination": "/", "permanent": false }
   ],
-
   "functions": {
     "api/generer.js": {
       "maxDuration": 60
@@ -46,7 +45,6 @@
       "maxDuration": 10
     }
   },
-
   "regions": [
     "fra1"
   ]
