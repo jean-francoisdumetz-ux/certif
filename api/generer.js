@@ -26,6 +26,10 @@ export default protege(async (req, res) => {
       signature: r.signature,
       annexe: r.annexe,
       plan: r.plan,
+      // Une demande par unité foncière : l'écran doit pouvoir annoncer
+      // « 2 demandes produites » et dire laquelle porte sur quelles parcelles.
+      demandes: r.demandes,
+      unitesFoncieres: r.unitesFoncieres,
       avertissements: r.avertissements,
     }), 'utf8').toString('base64'));
 

@@ -26,7 +26,9 @@ export default protege(async (req, res, utilisateur, jetonDelegue) => {
     // La consigne dit ce que la pièce jointe contient vraiment. Quand le plan
     // a pu être fabriqué, elle se tait là-dessus ; quand il manque, elle le
     // réclame en toutes lettres.
-    const c = consignes(demande, r.pagination, r.fichier, { planJoint: Boolean(r.plan) });
+    const c = consignes(demande, r.pagination, r.fichier, {
+      planJoint: Boolean(r.plan), demandes: r.demandes,
+    });
     const { html, images } = envelopper(c.html);
 
     const depot = await deposerBrouillon({
@@ -45,6 +47,8 @@ export default protege(async (req, res, utilisateur, jetonDelegue) => {
       pagination: r.pagination,
       signature: r.signature,
       plan: r.plan,
+      demandes: r.demandes,
+      unitesFoncieres: r.unitesFoncieres,
       avertissements: r.avertissements,
       destinataires,
       // Le repli .eml n'est pas un échec, mais il ne doit pas passer pour un

@@ -81,6 +81,16 @@ verifier('annexe déclenchée', r.annexe?.parcelles === 5);
 verifier('nom de fichier', r.fichier === 'CU_LOMME_2026-0117.pdf', r.fichier);
 verifier('plan signalé manquant', r.avertissements.some((a) => a.includes('plan de situation')));
 verifier('absence de signature signalée', r.avertissements.some((a) => a.includes('non signées')));
+// Cet essai tourne hors ligne : le cadastre ne répond pas, donc la contiguïté
+// des cinq parcelles n'a pas pu être vérifiée. Le dossier sort quand même —
+// une panne du cadastre n'arrête pas les envois de l'étude — mais il le DIT.
+// On ne DÉCOUPE que sur un constat : plusieurs unités foncières constatées
+// donnent plusieurs demandes, une absence de constat n'en donne qu'une.
+verifier('contiguïté non vérifiée signalée',
+  r.avertissements.some((a) => a.includes('contiguïté') || a.includes('Contiguïté')));
+verifier('la réserve sur le propriétaire ne s’affiche pas sans contours',
+  !r.avertissements.some((a) => a.includes('Chambon')));
+verifier('le groupement remonte', Array.isArray(r.unitesFoncieres?.unites));
 
 const c = consignes(demande, r.pagination, r.fichier, { planJoint: false });
 verifier('consigne du plan absente du corps', c.texte.includes('PLAN DE SITUATION N’EST PAS'));
@@ -89,6 +99,86 @@ verifier('consigne du recto verso', c.texte.includes('RECTO VERSO'));
 verifier('adresse de la mairie dans le corps', c.texte.includes('160 rue Sadi Carnot'));
 verifier('les deux versions comptent les mêmes étapes',
   (c.texte.match(/^\d\. /gm) || []).length === (c.html.match(/<p class=MsoNormal>\d\.&nbsp;/g) || []).length);
+
+console.log('\n— deux unités foncières : deux demandes —');
+{
+  // Le cadastre est simulé : deux parcelles contiguës, une troisième à deux
+  // cents mètres. C'est le cas qui doit produire DEUX demandes complètes — un
+  // seul Cerfa pour deux unités foncières donnerait un certificat qui ne couvre
+  // qu'une partie du terrain, sans que rien ne le signale avant l'acte.
+  const trois = demandeDepuisRequete({ ...COMPLET, parcelles: COMPLET.parcelles.slice(0, 3) });
+  const [p1, p2, p3] = trois.terrain.parcelles;
+  const carre = (dx) => {
+    const x = 3.06 + dx * 1e-5;
+    const y = 50.64;
+    return [[[x, y], [x + 1e-4, y], [x + 1e-4, y + 1e-4], [x, y + 1e-4], [x, y]]];
+  };
+  const cadastre = {
+    parcelles: [
+      { designation: '1', source: p1, anneaux: carre(0) },
+      { designation: '2', source: p2, anneaux: carre(10) },   // colle à la première
+      { designation: '3', source: p3, anneaux: carre(300) },  // à deux cents mètres
+    ],
+    anneaux: [], journal: [],
+  };
+
+  const lot = await preparerDossier(trois, undefined, { cadastre, sansPlan: true });
+  verifier('deux demandes produites', lot.demandes.length === 2, `${lot.demandes.length}`);
+  verifier('références suffixées',
+    lot.demandes.map((x) => x.reference).join(' ') === '2026-0117/1 2026-0117/2',
+    lot.demandes.map((x) => x.reference).join(' '));
+  verifier('la paire contiguë tient dans la première',
+    lot.demandes[0].parcelles.length === 2);
+  verifier('l’isolée fait la seconde', lot.demandes[1].parcelles.length === 1);
+  verifier('nom de fichier qui annonce le lot',
+    lot.fichier === 'CU_LOMME_2026-0117_2-demandes.pdf', lot.fichier);
+
+  // Chaque demande : une lettre d'une page complétée à deux, puis DEUX
+  // exemplaires de trois pages utiles complétées à quatre — soit 2 + 8 = 10
+  // pages. Deux demandes font vingt pages, et pas une de moins : c'est le prix
+  // de deux dossiers qui doivent pouvoir partir dans deux enveloppes.
+  verifier('vingt pages', lot.pagination.total === 20, `${lot.pagination.total}`);
+  verifier('deux blocs paginés', lot.pagination.dossiers.length === 2);
+  verifier('le second bloc commence après le premier',
+    lot.pagination.dossiers[1].de === lot.pagination.dossiers[0].a + 1);
+  verifier('les bornes du second bloc sont justes',
+    lot.pagination.dossiers[1].exemplaires[0].de === 13
+    && lot.pagination.dossiers[1].exemplaires[1].a === 20,
+    JSON.stringify(lot.pagination.dossiers[1].exemplaires));
+  verifier('le compte des unités remonte', lot.unitesFoncieres.demandes === 2);
+  verifier('le nombre de demandes est annoncé en avertissement',
+    lot.avertissements.some((a) => a.startsWith('2 demandes produites')));
+  verifier('chaque avertissement de plan nomme sa demande',
+    lot.avertissements.filter((a) => a.includes('plan de situation')).length === 2
+    && lot.avertissements.some((a) => a.startsWith('demande 2026-0117/2 — ')));
+
+  // Les consignes : c'est là que l'assistante lit ce qu'elle doit agrafer.
+  const cl = consignes(trois, lot.pagination, lot.fichier, { demandes: lot.demandes });
+  verifier('l’objet annonce deux demandes', /2 demandes/.test(cl.objet), cl.objet);
+  verifier('le pourquoi est dit', cl.texte.includes('2 unités foncières distinctes'));
+  verifier('les bornes de la première demande', cl.texte.includes('pages 3 à 6'));
+  verifier('les bornes de la seconde', cl.texte.includes('pages 17 à 20'));
+  verifier('deux plis séparés', cl.texte.includes('2 plis SÉPARÉS'));
+  verifier('les deux versions comptent les mêmes étapes',
+    (cl.texte.match(/^\d\. /gm) || []).length
+    === (cl.html.match(/<p class=MsoNormal>\d\.&nbsp;/g) || []).length);
+
+  // Et le contrôle en sens inverse : les mêmes trois parcelles, toutes
+  // contiguës, doivent passer.
+  const jointives = {
+    parcelles: [
+      { designation: '1', source: p1, anneaux: carre(0) },
+      { designation: '2', source: p2, anneaux: carre(10) },
+      { designation: '3', source: p3, anneaux: carre(20) },
+    ],
+    anneaux: [], journal: [],
+  };
+  const passe = await preparerDossier(trois, undefined, { cadastre: jointives, sansPlan: true });
+  verifier('trois parcelles contiguës : le dossier sort',
+    passe.unitesFoncieres.unites.length === 1);
+  verifier('la réserve sur le propriétaire est dite',
+    passe.avertissements.some((a) => a.includes('Chambon')));
+}
 
 console.log('\n— trois parcelles : pas d’annexe —');
 const court = await preparerDossier(
