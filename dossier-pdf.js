@@ -46,11 +46,6 @@ import { construireLettre } from './lettre.js';
 const A4_LARGEUR = 595.28;
 const A4_HAUTEUR = 841.89;
 
-async function nombreDePages(octets) {
-  if (!octets) return 0;
-  return (await PDFDocument.load(octets)).getPageCount();
-}
-
 /**
  * @param {object} o
  *   dossiers  [{demande, cerfa, annexe, plan}] — un par unité foncière.
@@ -77,8 +72,13 @@ export async function construireDossier({
 
   for (const d of liste) {
     const lettre = await construireLettre(d.demande, images);
-    const pagesImprime = (await nombreDePages(d.cerfa)) + (await nombreDePages(d.annexe));
-    const pagesPlan = await nombreDePages(d.plan);
+
+    // Préparés une fois, posés deux fois — voir repetable().
+    const cerfa = await repetable(final, d.cerfa);
+    const annexe = await repetable(final, d.annexe);
+    const carte = await repetable(final, d.plan);
+    const pagesImprime = cerfa.pages + annexe.pages;
+    const pagesPlan = carte.pages;
     const utiles = pagesImprime + pagesPlan;
 
     // TROIS BLOCS, TROIS FEUILLES NEUVES : la lettre, l'imprimé, le plan.
@@ -102,11 +102,11 @@ export async function construireDossier({
     completer(final, pagesLettre - lettre.pages);
 
     for (let i = 0; i < 2; i += 1) {
-      await verser(final, d.cerfa);
-      if (d.annexe) await verser(final, d.annexe);
+      await cerfa.poser();
+      await annexe.poser();
       completer(final, blocImprime - pagesImprime);
-      if (d.plan) {
-        await verser(final, d.plan);
+      if (pagesPlan) {
+        await carte.poser();
         completer(final, blocPlan - pagesPlan);
       }
     }
@@ -195,7 +195,7 @@ export async function construireDossier({
  * accoler trois noms de communes donnerait un nom de fichier illisible, et
  * n'en nommer qu'une ferait croire que le document ne porte que sur celle-là.
  */
-export function nomFichier(lot, demandes = 1) {
+export function nomFichier(lot, demandes = 1, partie = 0) {
   const terrains = lot.terrains || [lot.terrain];
   const sansAccent = (v) => String(v || '')
     .normalize('NFD').replace(/[\u0300-\u036F]/g, '')
@@ -206,7 +206,8 @@ export function nomFichier(lot, demandes = 1) {
     : sansAccent(terrains[0]?.commune?.nom || 'commune');
   const reference = (lot.reference || '')
     .replace(/\/[\d-]+$/, '').replace(/[^A-Za-z0-9-]+/g, '');
-  return ['CU', ou, reference, demandes > 1 ? `${demandes}-demandes` : '']
+  return ['CU', ou, reference, demandes > 1 ? `${demandes}-demandes` : '',
+    partie ? `partie-${partie}` : '']
     .filter(Boolean).join('_') + '.pdf';
 }
 
@@ -217,6 +218,51 @@ function completer(destination, combien) {
     const taille = derniere ? derniere.getSize() : { width: 595.276, height: 841.89 };
     destination.addPage([taille.width, taille.height]);
   }
+}
+
+/**
+ * Un document prêt à être posé plusieurs fois sans être stocké plusieurs fois.
+ *
+ * LES DEUX EXEMPLAIRES SONT IDENTIQUES : ON NE LES GARDE QU'UNE FOIS. Recopier
+ * les pages une seconde fois doublait le poids du fichier — mesuré le 18 août
+ * 2026 : 1 538 ko par demande, dont 639 de pur duplicata. Sur cinq demandes,
+ * cela faisait trois mégaoctets pour rien, et Vercel refuse de rendre une
+ * réponse au-delà de 4,5 Mo : le duplicata était le plafond du nombre de
+ * communes qu'un dossier pouvait porter.
+ *
+ * Incorporées une fois, dessinées deux fois, les pages deviennent des objets de
+ * forme référencés par les deux exemplaires. Le rendu est identique — c'est le
+ * même mécanisme que celui du papier à en-tête, dont le logo avait été comparé
+ * pixel à pixel.
+ *
+ * LE REPLI EST NÉCESSAIRE : une page sans flux de contenu — une page blanche,
+ * cela existe dans un PDF reçu — ne peut pas être incorporée. Plutôt que de
+ * laisser tomber tout le dossier pour une page vide, on recopie ce document-là,
+ * au prix du duplicata, et le reste bénéficie quand même de l'économie.
+ */
+async function repetable(destination, octets) {
+  if (!octets) return { pages: 0, poser: async () => {} };
+  const source = await PDFDocument.load(octets);
+  const pages = source.getPageCount();
+
+  // La vérification vient AVANT, pas dans un try/catch : pdf-lib n'incorpore
+  // vraiment qu'à l'enregistrement, et l'erreur tomberait alors bien trop tard,
+  // après que tout le document a été assemblé.
+  const toutesOntUnContenu = source.getPages().every((p) => p.node.Contents());
+  if (!toutesOntUnContenu) {
+    return { pages, poser: async () => { await verser(destination, octets); } };
+  }
+
+  const incorporees = await destination.embedPdf(source, source.getPageIndices());
+  return {
+    pages,
+    poser: async () => {
+      for (const incorporee of incorporees) {
+        const page = destination.addPage([incorporee.width, incorporee.height]);
+        page.drawPage(incorporee);
+      }
+    },
+  };
 }
 
 async function verser(destination, octets) {

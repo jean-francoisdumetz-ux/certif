@@ -1124,8 +1124,10 @@ function afficherRefus(err) {
   const d = err.details || {};
   const detail = d.manque
     ? `<ul>${d.manque.map((m) => `<li>${e(m)}</li>`).join('')}</ul>`
-    : d.variables ? `<ul>${d.variables.map((v) => `<li><code>${e(v)}</code></li>`).join('')}</ul>` : '';
-  afficher(`<div class="erreur"><b>${e(err.message)}</b>${detail}</div>`);
+    : d.demandes ? `<ul>${d.demandes.map((m) => `<li>${e(m)}</li>`).join('')}</ul>`
+      : d.variables ? `<ul>${d.variables.map((v) => `<li><code>${e(v)}</code></li>`).join('')}</ul>` : '';
+  afficher(`<div class="erreur"><b>${e(err.message)}</b>${detail}${
+    d.conseil ? `<p style="margin:8px 0 0">${e(d.conseil)}</p>` : ''}</div>`);
 }
 
 async function agir(quoi) {
@@ -1145,18 +1147,19 @@ async function agir(quoi) {
   }
 }
 
-async function genererPdf() {
+/** Une partie du lot : un appel, un fichier téléchargé, un compte rendu. */
+async function unePartie(corps, depuis, partie) {
   // Cette route rend un PDF, pas du JSON : elle ne passe donc pas par api().
   const r = await fetch('/api/generer', {
     method: 'POST',
     headers: { ...(await entetes()), 'Content-Type': 'application/json' },
-    body: JSON.stringify(corpsRequete()),
+    body: JSON.stringify({ ...corps, depuis, partie }),
   });
 
   if (!r.ok) {
-    const corps = await r.json().catch(() => ({}));
-    const err = new Error(corps.erreur || `HTTP ${r.status}`);
-    err.details = corps;
+    const erreur = await r.json().catch(() => ({}));
+    const err = new Error(erreur.erreur || `HTTP ${r.status}`);
+    err.details = erreur;
     throw err;
   }
 
@@ -1169,8 +1172,42 @@ async function genererPdf() {
   a.href = url; a.download = cr.fichier || 'certificats-urbanisme.pdf';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return cr;
+}
 
-  afficher(`${listeAvertissements(cr.avertissements, cr.plan)}${resume(cr)}`);
+/**
+ * UN GROS DOSSIER SORT EN PLUSIEURS FICHIERS, ET C'EST ICI QUE ÇA BOUCLE.
+ *
+ * La plateforme ne rend pas plus de 4,5 Mo par réponse. Le serveur produit donc
+ * ce qui tient, puis dit OÙ REPRENDRE ; l'écran redemande avec ce curseur
+ * jusqu'à ce qu'il n'y ait plus de suite. Chaque tour télécharge son fichier.
+ *
+ * LE GARDE-FOU N'EST PAS UNE PRÉCAUTION DE STYLE : si le serveur rendait
+ * toujours le même curseur — parce qu'une seule demande dépasse à elle seule le
+ * budget —, la boucle tournerait sans fin en téléchargeant des fichiers. On
+ * s'arrête à douze parties, et on le dit.
+ */
+async function genererPdf() {
+  const corps = corpsRequete();
+  const etat = document.getElementById('etatAction');
+  const parties = [];
+  let depuis = null;
+
+  for (let partie = 1; partie <= 12; partie += 1) {
+    if (partie > 1) etat.textContent = `fabrication de la partie ${partie}…`;
+    const cr = await unePartie(corps, depuis, partie);
+    parties.push(cr);
+    if (!cr.suite) break;
+    // Un curseur qui ne bouge pas : une seule demande pèse plus que le budget.
+    if (depuis && cr.suite.commune === depuis.commune && cr.suite.unite === depuis.unite) {
+      parties.push({ bloque: true });
+      break;
+    }
+    depuis = cr.suite;
+  }
+
+  const avertissements = parties.flatMap((x) => x.avertissements || []);
+  afficher(`${listeAvertissements(avertissements, parties[0]?.plan)}${resume(parties)}`);
 }
 
 /**
@@ -1180,7 +1217,31 @@ async function genererPdf() {
  * pourquoi, et à quelle mairie chacune part. Un PDF de quarante pages qui en
  * contenait dix la semaine précédente doit s'expliquer de lui-même.
  */
-function resume(cr) {
+function resume(parties) {
+  const liste = Array.isArray(parties) ? parties : [parties];
+  const utiles = liste.filter((x) => x && !x.bloque);
+  const bloque = liste.some((x) => x && x.bloque);
+
+  if (utiles.length > 1 || bloque) {
+    const total = utiles.reduce((n, x) => n + (x.demandes?.length || 0), 0);
+    return `<div class="ok"><b>${total} demandes produites, en ${utiles.length} fichiers.</b>
+      Un seul fichier ne peut pas dépasser 4,5 Mo — c'est la limite de la
+      plateforme, pas celle du dossier. Chacun s'imprime pour lui-même.
+      ${utiles.map((x) => `<div style="margin-top:10px"><b>${e(x.fichier)}</b> —
+        ${x.pagination?.total} pages, ${x.pagination?.feuilles} feuilles
+        <ul>${(x.pagination?.dossiers || []).map((b, i) => `<li>${e(b.reference || '')}${
+          x.demandes?.[i]?.commune ? ` — ${e(x.demandes[i].commune)}` : ''} —
+          pages ${b.de} à ${b.a}${x.demandes?.[i]?.mairie
+          ? `<br><span style="color:var(--gris)">→ ${e(x.demandes[i].mairie)}</span>` : ''}</li>`).join('')}</ul>
+        </div>`).join('')}
+      ${bloque ? `<p style="margin:10px 0 0"><b>Arrêté avant la fin :</b> une demande à elle
+        seule dépasse la taille d'un fichier. Retirez-la de la saisie et produisez-la à part.</p>` : ''}
+      <p style="margin:10px 0 0;color:var(--gris)">Le navigateur peut demander
+      l'autorisation de télécharger plusieurs fichiers : acceptez, sinon seul le
+      premier arrive.</p></div>`;
+  }
+
+  const cr = utiles[0] || {};
   const blocs = cr.pagination?.dossiers || [];
   const planDe = (i) => {
     const p = cr.demandes?.[i]?.plan;

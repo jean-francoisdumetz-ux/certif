@@ -62,6 +62,17 @@ refus('contenance non numérique', {
   ...COMPLET, parcelles: [{ section: 'AB', numero: '12', contenance: 'douze' }],
 }, 400, 'contenance');
 refus('sans adresse de mairie', { ...COMPLET, mairie: { nom: 'Mairie' } }, 400, 'mairie');
+// UN BLOC VIDE SE DIT EN UNE LIGNE. Énumérer commune, parcelles et mairie d'une
+// saisie pas commencée donne trois oublis là où il n'y en a aucun.
+refus('écran vierge', { reference: '15151', communes: [{ commune: {}, parcelles: [], mairie: {} }] },
+  400, 'la saisie est vide');
+refus('un bloc vide parmi d’autres', {
+  reference: '15151',
+  communes: [
+    { ...COMPLET, commune: { code: '59355', nom: 'Lomme' } },
+    { commune: {}, parcelles: [], mairie: {} },
+  ],
+}, 400, 'la commune n° 2 est vide');
 
 console.log('\n— la demande complète —');
 const demande = demandeDepuisRequete(COMPLET);
@@ -267,6 +278,56 @@ console.log('\n— plusieurs communes, plusieurs mairies —');
     (c3.texte.match(/^\d+\. /gm) || []).length
     === (c3.html.match(/<p class=MsoNormal>\d+\.&nbsp;/g) || []).length);
   verifier('le pli unique est explicitement écarté', c3.texte.includes('3 plis SÉPARÉS'));
+}
+
+console.log('\n— un gros lot sort en plusieurs fichiers —');
+{
+  // Six communes, une demande chacune : plus lourd que ce qu'une réponse peut
+  // porter. Le lot doit se couper de lui-même, et la partie 2 reprendre EXACTEMENT
+  // là où la partie 1 s'est arrêtée — ni doublon, ni trou.
+  const commune = (i) => ({
+    commune: { code: '59009', nom: `Commune ${i}` },
+    adresse: `${i} rue d’Essai`,
+    codePostalTerrain: '59650',
+    mairie: { nom: 'Mairie', adresse: '1 place', codePostal: '59650', commune: `Commune ${i}` },
+    parcelles: [{ section: 'NL', numero: String(100 + i), contenance: 1429 }],
+  });
+  const lot = demandeDepuisRequete({
+    reference: '15151', date: '2026-08-18T00:00:00Z',
+    communes: Array.from({ length: 6 }, (_, i) => commune(i + 1)),
+  });
+
+  // Un budget volontairement petit — 900 ko — pour couper toutes les deux
+  // demandes sans avoir à fabriquer six mégaoctets dans un essai.
+  const budget = 900 * 1024;
+  const parties = [];
+  let depuis = null;
+  for (let n = 1; n <= 10; n += 1) {
+    const r = await preparerDossier(lot, undefined, { sansPlan: true, depuis, budget, partie: n > 1 ? n : 0 });
+    parties.push(r);
+    if (!r.suite) break;
+    depuis = r.suite;
+  }
+
+  verifier('le lot s’est coupé', parties.length > 1, `${parties.length} partie(s)`);
+  const toutes = parties.flatMap((r) => r.demandes.map((d) => d.reference));
+  verifier('six demandes en tout, sans doublon ni trou',
+    toutes.join(' ') === '15151/1-1 15151/2-1 15151/3-1 15151/4-1 15151/5-1 15151/6-1',
+    toutes.join(' '));
+  verifier('aucune partie ne dépasse le budget',
+    parties.every((r) => r.octets.length <= budget * 1.2),
+    parties.map((r) => Math.round(r.octets.length / 1024) + ' ko').join(', '));
+  verifier('la dernière ne renvoie à rien', parties[parties.length - 1].suite === null,
+    JSON.stringify(parties[parties.length - 1].suite));
+  verifier('les fichiers se distinguent',
+    new Set(parties.map((r) => r.fichier)).size === parties.length,
+    parties.map((r) => r.fichier).join(', '));
+
+  // Une seule demande tient toujours, même si elle dépasse à elle seule : mieux
+  // vaut un fichier trop lourd, qui se voit, qu'une boucle sans fin.
+  const seule = await preparerDossier(lot, undefined, { sansPlan: true, budget: 1 });
+  verifier('un budget dérisoire rend quand même une demande', seule.demandes.length === 1);
+  verifier('et annonce la suite', seule.suite?.commune === 1, JSON.stringify(seule.suite));
 }
 
 console.log('\n— l’imprimé est remonté de 3 mm —');

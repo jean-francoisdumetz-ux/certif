@@ -51,6 +51,9 @@ export class Refus extends Error {
 
 const texte = (v) => (v === undefined || v === null ? '' : String(v).trim());
 
+/** Ce que pèse une lettre d'accompagnement, papier à en-tête compris. */
+const LETTRE = 280 * 1024;
+
 /** La parcelle telle qu'elle a été saisie — « 355 AB 12 ». */
 const etiquette = (p) => [p.prefixe, p.section, p.numero].filter(Boolean).join(' ');
 
@@ -68,10 +71,6 @@ function lireTerrain(b, rang, total, absents) {
   // sans dire laquelle obligerait à tout relire.
   const ou = total > 1 ? ` — ${texte(commune.nom) || `commune n° ${rang + 1}`}` : '';
 
-  if (!texte(commune.code) || !texte(commune.nom)) {
-    absents.push(`commune (code INSEE et nom)${ou}`);
-  }
-
   const parcelles = (Array.isArray(b.parcelles) ? b.parcelles : [])
     .map((p) => ({
       prefixe: texte(p.prefixe) || null,
@@ -83,6 +82,25 @@ function lireTerrain(b, rang, total, absents) {
     }))
     .filter((p) => p.section || p.numero);
 
+  const mairieBrute = b.mairie || {};
+
+  // UN BLOC ENTIÈREMENT VIDE SE DIT EN UNE LIGNE, pas en trois. Énumérer la
+  // commune, les parcelles et la mairie d'un bloc où rien n'a été saisi donne
+  // une liste qui semble décrire trois oublis, là où il n'y a qu'une saisie pas
+  // commencée — et l'on cherche ce qu'on aurait raté.
+  const rienDuTout = !texte(commune.code) && !texte(commune.nom) && parcelles.length === 0
+    && !texte(mairieBrute.adresse) && !texte(b.adresse);
+  if (rienDuTout) {
+    absents.push(total > 1
+      ? `la commune n° ${rang + 1} est vide : renseignez-la ou retirez-la`
+      : 'la saisie est vide : déposez une liste, ou renseignez une commune et ses parcelles');
+    return terrainDe(commune, b, parcelles, mairieBrute);
+  }
+
+  if (!texte(commune.code) || !texte(commune.nom)) {
+    absents.push(`commune (code INSEE et nom)${ou}`);
+  }
+
   if (parcelles.length === 0) absents.push(`au moins une parcelle${ou}`);
   parcelles.forEach((p, i) => {
     if (!p.section) absents.push(`section de la parcelle ${i + 1}${ou}`);
@@ -92,11 +110,15 @@ function lireTerrain(b, rang, total, absents) {
     }
   });
 
-  const mairie = b.mairie || {};
-  if (!texte(mairie.adresse) || !texte(mairie.codePostal)) {
+  if (!texte(mairieBrute.adresse) || !texte(mairieBrute.codePostal)) {
     absents.push(`adresse postale de la mairie${ou} (c'est elle qui figure sur le recommandé)`);
   }
 
+  return terrainDe(commune, b, parcelles, mairieBrute);
+}
+
+/** Le terrain mis en forme, une fois les manques relevés. */
+function terrainDe(commune, b, parcelles, mairie) {
   return {
     commune: {
       code: texte(commune.code),
@@ -192,10 +214,17 @@ export function referencer(base, rangCommune, rangUnite, communes, unites) {
  *              ou `cadastre` pour la forme à une commune. Sert aux essais hors
  *              ligne : sans elles, le découpage en unités foncières ne serait
  *              éprouvable qu'avec le réseau, c'est-à-dire jamais.
+ *   depuis     {commune, unite} — la demande où reprendre. Sert au découpage en
+ *              plusieurs fichiers : la partie 2 reprend là où la partie 1 s'est
+ *              arrêtée, sans refaire le travail des communes déjà servies.
+ *   budget     poids maximal du fichier, en octets. Au-delà, on s'arrête et on
+ *              rend un curseur `suite`.
  */
 export async function preparerDossier(lot, phrase, options = {}) {
-  const { sansPlan = false } = options;
+  const { sansPlan = false, depuis = null, budget = 0 } = options;
   const fournis = options.cadastres || (options.cadastre ? [options.cadastre] : null);
+  const debutCommune = depuis?.commune || 0;
+  const debutUnite = depuis?.unite || 0;
 
   let images = {};
   let etatSignature = 'non_configure';
@@ -214,7 +243,15 @@ export async function preparerDossier(lot, phrase, options = {}) {
   const avertissements = [];
   const parCommune = [];
 
+  let poids = 0;
+  let suite = null;
+
   for (const [rangCommune, terrain] of terrains.entries()) {
+    if (suite) break;
+    // Les communes déjà servies par une partie précédente ne sont pas
+    // réexaminées : on ne redemande pas au cadastre ce dont on n'a plus besoin.
+    if (rangCommune < debutCommune) continue;
+
     // LE CADASTRE, UNE SEULE FOIS PAR COMMUNE. Sa réponse sert deux fois : à
     // découper en unités foncières, et à composer les plans. On l'interroge donc
     // avant toute fabrication, et on distribue le résultat.
@@ -244,6 +281,8 @@ export async function preparerDossier(lot, phrase, options = {}) {
     }
 
     for (const [rangUnite, groupe] of groupes.entries()) {
+      if (rangCommune === debutCommune && rangUnite < debutUnite) continue;
+
       const reference = referencer(
         lot.reference, rangCommune, rangUnite, terrains.length, groupes.length);
 
@@ -292,6 +331,24 @@ export async function preparerDossier(lot, phrase, options = {}) {
 
       const cerfa = await remplirCerfa(sienne, images);
       const annexe = await construireAnnexe(sienne);
+
+      // LA PESÉE SE FAIT SUR LES PIÈCES, PAS SUR L'ASSEMBLAGE. La somme des
+      // octets du Cerfa, de l'annexe et du plan, plus la lettre, approche le
+      // fichier final à un pour cent près — mesuré : 907 ko estimés pour 915
+      // produits. Assembler à chaque fois pour peser exactement coûterait plus
+      // que ce que la précision rapporte.
+      //
+      // La demande qui ne tient pas est REPORTÉE, pas tronquée : elle ouvrira la
+      // partie suivante. Son plan aura été demandé pour rien — un extrait de
+      // trop par coupure, c'est le prix d'un découpage juste.
+      const pese = cerfa.length + (annexe?.octets?.length || 0)
+        + (plan?.octets?.length || 0) + LETTRE;
+      if (budget && dossiers.length && poids + pese > budget) {
+        suite = { commune: rangCommune, unite: rangUnite };
+        break;
+      }
+      poids += pese;
+
       dossiers.push({ demande: sienne, cerfa, annexe: annexe?.octets, plan: plan?.octets });
 
       comptesRendus.push({
@@ -318,7 +375,9 @@ export async function preparerDossier(lot, phrase, options = {}) {
   return {
     octets,
     pagination,
-    fichier: nomFichier(lot, dossiers.length),
+    // Le curseur de reprise : nul quand tout tient dans ce fichier.
+    suite,
+    fichier: nomFichier(lot, dossiers.length, options.partie || 0),
     signature: etatSignature,
     demandes: comptesRendus,
     communes: parCommune,
