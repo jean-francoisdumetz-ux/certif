@@ -62,6 +62,17 @@ refus('contenance non numérique', {
   ...COMPLET, parcelles: [{ section: 'AB', numero: '12', contenance: 'douze' }],
 }, 400, 'contenance');
 refus('sans adresse de mairie', { ...COMPLET, mairie: { nom: 'Mairie' } }, 400, 'mairie');
+// UN BLOC VIDE SE DIT EN UNE LIGNE. Énumérer commune, parcelles et mairie d'une
+// saisie pas commencée donne trois oublis là où il n'y en a aucun.
+refus('écran vierge', { reference: '15151', communes: [{ commune: {}, parcelles: [], mairie: {} }] },
+  400, 'la saisie est vide');
+refus('un bloc vide parmi d’autres', {
+  reference: '15151',
+  communes: [
+    { ...COMPLET, commune: { code: '59355', nom: 'Lomme' } },
+    { commune: {}, parcelles: [], mairie: {} },
+  ],
+}, 400, 'la commune n° 2 est vide');
 
 console.log('\n— la demande complète —');
 const demande = demandeDepuisRequete(COMPLET);
@@ -178,6 +189,95 @@ console.log('\n— deux unités foncières : deux demandes —');
     passe.unitesFoncieres.unites.length === 1);
   verifier('la réserve sur le propriétaire est dite',
     passe.avertissements.some((a) => a.includes('Chambon')));
+}
+
+console.log('\n— plusieurs communes, plusieurs mairies —');
+{
+  // Le cas que le dossier de succession présente tous les mois : des terrains
+  // dans deux communes, dont l'une compte deux îlots séparés. Trois demandes,
+  // trois lettres, trois plis, DEUX adresses.
+  const lot = demandeDepuisRequete({
+    reference: '15151',
+    accepterVoieElectronique: true,
+    date: '2026-08-18T00:00:00Z',
+    communes: [
+      {
+        commune: { code: '59009', nom: 'Villeneuve-d’Ascq' },
+        adresse: '11 allée du Tennis',
+        codePostalTerrain: '59650',
+        mairie: {
+          nom: 'Mairie de Villeneuve-d’Ascq', adresse: '1 place Salvador Allende',
+          codePostal: '59650', commune: 'Villeneuve-d’Ascq',
+        },
+        parcelles: [
+          { section: 'NL', numero: '113', contenance: 1429 },
+          { section: 'NL', numero: '117', contenance: 2370 },
+          { section: 'ZC', numero: '294', contenance: 858 },
+        ],
+      },
+      {
+        commune: { code: '59355', nom: 'Lomme' },
+        adresse: '14 rue du Petit Belgique',
+        codePostalTerrain: '59160',
+        mairie: {
+          nom: 'Mairie de Lomme', adresse: '160 rue Sadi Carnot',
+          codePostal: '59160', commune: 'Lomme',
+        },
+        parcelles: [{ prefixe: '355', section: 'AB', numero: '12', contenance: 842 }],
+      },
+    ],
+  });
+
+  verifier('deux terrains lus', lot.terrains.length === 2);
+  verifier('chaque terrain a SA mairie',
+    lot.terrains[0].mairie.codePostal === '59650' && lot.terrains[1].mairie.codePostal === '59160');
+
+  // Cadastre simulé : à Villeneuve, deux parcelles contiguës et une isolée ;
+  // à Lomme, une seule parcelle.
+  const carre = (dx, dy = 0) => {
+    const x = 3.14 + dx * 1e-5;
+    const y = 50.62 + dy * 1e-5;
+    return [[[x, y], [x + 1e-4, y], [x + 1e-4, y + 1e-4], [x, y + 1e-4], [x, y]]];
+  };
+  const [a, b, c] = lot.terrains[0].parcelles;
+  const [d] = lot.terrains[1].parcelles;
+  const cadastres = [
+    {
+      parcelles: [
+        { source: a, anneaux: carre(0) },
+        { source: b, anneaux: carre(10) },
+        { source: c, anneaux: carre(400) },
+      ],
+      anneaux: [], journal: [],
+    },
+    { parcelles: [{ source: d, anneaux: carre(0, 900) }], anneaux: [], journal: [] },
+  ];
+
+  const r = await preparerDossier(lot, undefined, { cadastres, sansPlan: true });
+  verifier('trois demandes', r.demandes.length === 3, `${r.demandes.length}`);
+  verifier('références commune-unité',
+    r.demandes.map((x) => x.reference).join(' ') === '15151/1-1 15151/1-2 15151/2-1',
+    r.demandes.map((x) => x.reference).join(' '));
+  verifier('la troisième relève de Lomme', r.demandes[2].commune === 'Lomme');
+  verifier('chaque demande porte SON adresse de mairie',
+    r.demandes[0].mairie.includes('59650') && r.demandes[2].mairie.includes('59160'));
+  verifier('le nom de fichier compte les communes',
+    r.fichier === 'CU_2-COMMUNES_15151_3-demandes.pdf', r.fichier);
+  verifier('deux communes rendues', r.communes.length === 2);
+  verifier('la première en donne deux', r.communes[0].demandes === 2);
+
+  // Trois demandes de 2 + 8 pages : 30 pages.
+  verifier('trente pages', r.pagination.total === 30, `${r.pagination.total}`);
+
+  const c3 = consignes(lot, r.pagination, r.fichier, { demandes: r.demandes });
+  verifier('l’objet annonce deux communes', /2 communes/.test(c3.objet), c3.objet);
+  verifier('les deux adresses figurent',
+    c3.texte.includes('Salvador Allende') && c3.texte.includes('Sadi Carnot'));
+  verifier('l’adresse est rappelée dans l’étape', c3.texte.includes('À envoyer à :'));
+  verifier('les deux versions comptent les mêmes étapes',
+    (c3.texte.match(/^\d+\. /gm) || []).length
+    === (c3.html.match(/<p class=MsoNormal>\d+\.&nbsp;/g) || []).length);
+  verifier('le pli unique est explicitement écarté', c3.texte.includes('3 plis SÉPARÉS'));
 }
 
 console.log('\n— l’imprimé est remonté de 3 mm —');
