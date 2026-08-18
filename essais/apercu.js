@@ -143,5 +143,6 @@ const c = consignes(demande, pagination, fichier);
 
 console.log(`écrit : ${sortie}  (${(octets.length / 1024).toFixed(0)} ko, nom d'envoi : ${fichier})`);
 console.log('pagination :', JSON.stringify(pagination));
+console.log(`impression : ${pagination.feuilles} feuilles en recto verso, ${pagination.blanches} page(s) blanche(s)`);
 console.log('annexe :', annexe ? `${annexe.nombre} parcelles sur ${annexe.pages} page(s)` : 'aucune');
 console.log(`\n--- objet ---\n${c.objet}\n--- corps ---\n${c.texte}`);

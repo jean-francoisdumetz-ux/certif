@@ -70,11 +70,13 @@ verifier('cinq parcelles retenues', demande.terrain.parcelles.length === 5);
 verifier('voie électronique acceptée par défaut', demande.accepterVoieElectronique === true);
 
 const r = await preparerDossier(demande, undefined);
-// Sans plan de situation, un exemplaire fait quatre pages : les trois du
-// Cerfa et l'annexe. Le total attendu bougera à un de plus par exemplaire le
-// jour où PAINT fournira le plan — et ce test le dira.
-verifier('neuf pages', r.pagination.total === 9, `${r.pagination.total}`);
+// Sans plan de situation, un exemplaire fait quatre pages utiles : les trois
+// du Cerfa et l'annexe. La lettre en fait une, complétée à deux pour que le
+// premier exemplaire commence sur une feuille neuve.
+verifier('dix pages', r.pagination.total === 10, `${r.pagination.total}`);
+verifier('cinq feuilles en recto verso', r.pagination.feuilles === 5);
 verifier('deux exemplaires de quatre pages', r.pagination.parExemplaire === 4);
+verifier('une seule page blanche', r.pagination.blanches === 1, `${r.pagination.blanches}`);
 verifier('annexe déclenchée', r.annexe?.parcelles === 5);
 verifier('nom de fichier', r.fichier === 'CU_LOMME_2026-0117.pdf', r.fichier);
 verifier('plan signalé manquant', r.avertissements.some((a) => a.includes('plan de situation')));
@@ -82,7 +84,8 @@ verifier('absence de signature signalée', r.avertissements.some((a) => a.includ
 
 const c = consignes(demande, r.pagination, r.fichier, { planJoint: false });
 verifier('consigne du plan absente du corps', c.texte.includes('PLAN DE SITUATION N’EST PAS'));
-verifier('bornes de pages dans le corps', c.texte.includes('pages 2 à 5') && c.texte.includes('pages 6 à 9'));
+verifier('bornes de pages dans le corps', c.texte.includes('pages 3 à 6') && c.texte.includes('pages 7 à 10'));
+verifier('consigne du recto verso', c.texte.includes('RECTO VERSO'));
 verifier('adresse de la mairie dans le corps', c.texte.includes('160 rue Sadi Carnot'));
 verifier('les deux versions comptent les mêmes étapes',
   (c.texte.match(/^\d\. /gm) || []).length === (c.html.match(/<p class=MsoNormal>\d\.&nbsp;/g) || []).length);
@@ -91,7 +94,11 @@ console.log('\n— trois parcelles : pas d’annexe —');
 const court = await preparerDossier(
   demandeDepuisRequete({ ...COMPLET, parcelles: COMPLET.parcelles.slice(0, 3) }), undefined);
 verifier('aucune annexe', court.annexe === null);
-verifier('sept pages', court.pagination.total === 7, `${court.pagination.total}`);
+// Trois pages utiles par exemplaire, complétées à quatre : le second
+// exemplaire ne doit pas commencer au dos du premier.
+verifier('dix pages aussi', court.pagination.total === 10, `${court.pagination.total}`);
+verifier('trois pages utiles complétées à quatre',
+  court.pagination.utilesParExemplaire === 3 && court.pagination.parExemplaire === 4);
 
 writeFileSync('essais/apercu-certif.pdf', Buffer.from(r.octets));
 console.log(`\n${echecs === 0 ? 'tout passe' : `${echecs} échec(s)`}`);
