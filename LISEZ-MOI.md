@@ -131,6 +131,34 @@ Le courriel à l'assistante donne, pour chaque demande, ses bornes de pages **et
 l'adresse de sa mairie**, en clair dans l'étape. Les blocs postaux sont repris en
 fin de message, un par commune.
 
+## Le sommaire du dossier
+
+Après la génération, deux fichiers de plus se téléchargent : `CU_15151_sommaire.pdf`
+et `CU_15151_sommaire.xlsx`. **Une ligne par parcelle**, et en face de chacune la
+référence de la demande dont elle relève, plus la mairie destinataire.
+
+Ils servent au retour : six demandes donnent six certificats qui reviennent à des
+semaines d'intervalle, chacun sous sa référence. Le tableur porte trois colonnes
+vides — *déposé le*, *reçu le*, *observations* — pour les pointer à mesure.
+
+**Ils ne partent PAS en mairie, et c'est délibéré.** Un sommaire couvrant trois
+communes apprendrait à la mairie de Lomme que le client possède aussi à
+Villeneuve-d'Ascq et à Saint-Omer : une information qui ne la regarde pas. D'où
+le fichier séparé plutôt qu'une page en tête du PDF — une page glissée dans le
+document est une page qu'on oublie de retirer avant de fermer l'enveloppe. Le
+PDF le rappelle en pied : « document interne à l'étude ».
+
+Le sommaire est bâti **après coup, sur ce qui a réellement été produit**,
+références comprises : il décrit le document, pas l'intention. Le `.xlsx` est
+écrit sans bibliothèque de tableur (`lib/tableur.js`, une centaine de lignes sur
+`fflate`) — mêmes raisons que pour la lecture : rien qui interprète une formule,
+rien qui s'exécute à l'ouverture. Les contenances y sont des NOMBRES, pour que la
+sélection d'une colonne en donne la somme.
+
+Éprouvé hors ligne : `node essais/sommaire.mjs` — le classeur produit est relu
+par le lecteur de CERTIF lui-même, apostrophes courbes comprises, et il est
+reproductible à l'octet près.
+
 ## Importer une liste de parcelles
 
 Colonne de droite de l'écran : on y dépose un fichier, `POST /api/importer` le

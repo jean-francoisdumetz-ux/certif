@@ -17,6 +17,9 @@
       "maxDuration": 30,
       "includeFiles": "node_modules/pdfjs-dist/legacy/build/**"
     },
+    "api/sommaire.js": {
+      "maxDuration": 20
+    },
     "api/adresses.js": {
       "maxDuration": 15
     },

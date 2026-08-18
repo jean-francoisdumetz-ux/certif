@@ -189,11 +189,21 @@ export async function fontes(pdf) {
  * surveiller est le bas de page, et c'est fait dans place().
  */
 export class Feuille {
-  constructor(pdf, f, { haut = 25 * MM, bas = 22 * MM, gauche = 25 * MM, droite = 20 * MM, creerPage = null } = {}) {
+  constructor(pdf, f, {
+    haut = 25 * MM, bas = 22 * MM, gauche = 25 * MM, droite = 20 * MM, creerPage = null,
+    // À L'ITALIENNE POUR UN TABLEAU LARGE, et pour cela seulement. Le sommaire
+    // porte huit colonnes ; à la française, elles se serreraient jusqu'à rendre
+    // les lieudits illisibles. Tout le reste — lettre, annexe, Cerfa — reste à
+    // la française, parce que c'est ce qui part en mairie.
+    paysage = false,
+  } = {}) {
     this.pdf = pdf;
     this.f = f;
+    this.format = paysage
+      ? { largeur: A4.hauteur, hauteur: A4.largeur }
+      : { largeur: A4.largeur, hauteur: A4.hauteur };
     this.marges = { haut, bas, gauche, droite };
-    this.largeur = A4.largeur - gauche - droite;
+    this.largeur = this.format.largeur - gauche - droite;
     // D'où viennent les pages. Par défaut, des A4 blanches ; pour une lettre,
     // des exemplaires du papier à en-tête préparés d'avance. La fonction doit
     // être synchrone — tout ce qui demande un await se fait avant.
@@ -205,9 +215,11 @@ export class Feuille {
   }
 
   nouvellePage() {
-    this.page = this.creerPage ? this.creerPage() : this.pdf.addPage([A4.largeur, A4.hauteur]);
+    this.page = this.creerPage
+      ? this.creerPage()
+      : this.pdf.addPage([this.format.largeur, this.format.hauteur]);
     this.pages.push(this.page);
-    this.y = A4.hauteur - this.marges.haut;
+    this.y = this.format.hauteur - this.marges.haut;
     return this.page;
   }
 

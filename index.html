@@ -960,6 +960,10 @@ async function reporterLues() {
       section: p.section || '',
       numero: p.numero || '',
       contenance: p.contenance || '',
+      // Le lieudit ne se saisit pas à l'écran — quatre champs par ligne
+      // suffisent — mais il est conservé quand un fichier l'a donné : il nourrit
+      // la colonne « lieu de situation » de l'annexe et celle du sommaire.
+      lieudit: p.lieudit || '',
     }));
     // Replié par défaut au-delà de deux : une saisie de six communes déroulées
     // ne se lit pas.
@@ -1062,7 +1066,7 @@ function corpsRequete() {
         : {},
       adresse: b.adresse,
       codePostalTerrain: b.codePostalTerrain,
-      parcelles: b.parcelles,
+      parcelles: b.parcelles.map((p) => ({ ...p, lieuDit: p.lieudit || null })),
       mairie: b.mairie,
     })),
     accepterVoieElectronique: saisie.accepterVoieElectronique,
@@ -1207,7 +1211,71 @@ async function genererPdf() {
   }
 
   const avertissements = parties.flatMap((x) => x.avertissements || []);
-  afficher(`${listeAvertissements(avertissements, parties[0]?.plan)}${resume(parties)}`);
+  const sommaire = await telechargerSommaire(parties);
+  afficher(`${listeAvertissements(avertissements, parties[0]?.plan)}${resume(parties)}${sommaire}`);
+}
+
+/**
+ * Le sommaire du dossier : quelle parcelle relève de quelle demande.
+ *
+ * Fabriqué APRÈS coup, à partir de ce qui a réellement été produit — références
+ * comprises. Le refabriquer depuis la saisie donnerait un tableau plausible mais
+ * non garanti conforme au PDF ; ici, il décrit le document, pas l'intention.
+ *
+ * SON ÉCHEC N'EST PAS CELUI DE LA GÉNÉRATION. Les demandes sont produites et
+ * téléchargées : si le sommaire ne se fait pas, on le dit et on n'efface rien.
+ */
+async function telechargerSommaire(parties) {
+  const demandes = parties.flatMap((partie) => (partie.demandes || []).map((d) => {
+    // Le rang de la commune retrouve le bloc de saisie, et le bloc porte la
+    // contenance et le lieudit que le compte rendu ne transporte pas.
+    const bloc = saisie.communes[d.rangCommune] || { parcelles: [] };
+    return {
+      reference: d.reference,
+      commune: d.commune,
+      mairie: d.mairie,
+      parcelles: (d.parcelles || []).map((etiquette) => {
+        const p = bloc.parcelles.find(
+          (x) => [x.prefixe, x.section, x.numero].filter(Boolean).join(' ') === etiquette) || {};
+        return {
+          prefixe: p.prefixe || '',
+          section: p.section || etiquette,
+          numero: p.numero || '',
+          contenance: p.contenance || '',
+          lieudit: p.lieudit || '',
+        };
+      }),
+    };
+  }));
+  if (!demandes.length) return '';
+
+  let r;
+  try {
+    r = await api('/api/sommaire', {
+      method: 'POST',
+      body: JSON.stringify({ reference: saisie.reference, demandes }),
+    });
+  } catch (err) {
+    return `<div class="avert">Le sommaire n’a pas pu être établi — ${e(err.message)}.
+      Les demandes, elles, sont bien produites.</div>`;
+  }
+
+  for (const fichier of r.fichiers || []) {
+    const octets = Uint8Array.from(atob(fichier.contenu), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([octets], { type: fichier.type }));
+    const a = document.createElement('a');
+    a.href = url; a.download = fichier.nom;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  return `<div class="ok"><b>Sommaire du dossier</b> — ${r.lignes} parcelles, une ligne chacune,
+    avec la référence de la demande dont elle relève et la mairie destinataire.
+    ${(r.fichiers || []).map((f) => `<br>${e(f.nom)}`).join('')}
+    <br><span style="color:var(--gris)">Le tableur porte trois colonnes vides — déposé le, reçu le,
+    observations — pour pointer les certificats à mesure qu’ils reviennent. Ces deux fichiers
+    restent à l’étude : ils portent les parcelles de toutes les communes du dossier, et aucune
+    mairie n’a à connaître celles des autres.</span></div>`;
 }
 
 /**
