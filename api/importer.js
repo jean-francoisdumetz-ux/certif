@@ -59,6 +59,8 @@ export default protege(async (req, res) => {
     methode: r.methode,
     parcelles: r.parcelles,
     commune: r.commune,
+    // Un groupe par commune : c'est ce dont l'écran fait ses blocs de saisie.
+    groupes: r.groupes,
     ignorees: r.ignorees,
     avertissements: r.avertissements,
     // Les lignes brutes ne partent que si on les demande : sur un relevé de
