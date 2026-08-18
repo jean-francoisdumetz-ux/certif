@@ -5,7 +5,7 @@
 //
 //   node essais/bout-en-bout.mjs
 import { writeFileSync } from 'fs';
-import { demandeDepuisRequete, preparerDossier, Refus } from '../lib/preparer.js';
+import { demandeDepuisRequete, preparerDossier, decouperCadastre, Refus } from '../lib/preparer.js';
 import { consignes } from '../lib/consignes.js';
 
 process.env.CERTIF_OFFICE_NOM ||= 'FIDAL Notaires';
@@ -178,6 +178,76 @@ console.log('\n— deux unités foncières : deux demandes —');
     passe.unitesFoncieres.unites.length === 1);
   verifier('la réserve sur le propriétaire est dite',
     passe.avertissements.some((a) => a.includes('Chambon')));
+}
+
+console.log('\n— le plan ne se met jamais au dos du formulaire —');
+{
+  // Le plan de situation est une PIÈCE JOINTE, pas un feuillet de l'imprimé :
+  // le service le détache pour le verser au dossier. Au verso de la dernière
+  // page du Cerfa, il faudrait couper la feuille pour l'en séparer.
+  const { remplirCerfa } = await import('../lib/cerfa-cu.js');
+  const { construireAnnexe } = await import('../lib/annexe.js');
+  const { construireDossier } = await import('../lib/dossier-pdf.js');
+  const { PDFDocument } = await import('pdf-lib');
+
+  const deux = demandeDepuisRequete({ ...COMPLET, parcelles: COMPLET.parcelles.slice(0, 2) });
+  const faux = await PDFDocument.create();
+  faux.addPage([595, 842]); // le format de l'extrait du cadastre, différent d'un cheveu
+  const plan = await faux.save();
+
+  const cerfa = await remplirCerfa(deux, {});
+  const annexe = await construireAnnexe(deux);
+  const r = await construireDossier({
+    dossiers: [{ demande: deux, cerfa, annexe: annexe?.octets, plan }],
+  });
+  const bloc = r.pagination.dossiers[0];
+
+  // Trois pages d'imprimé complétées à quatre, puis une page de plan complétée
+  // à deux : six pages par exemplaire, et le plan commence sur une feuille
+  // neuve dans chacun.
+  verifier('quatre pages d’imprimé', bloc.imprimeParExemplaire === 4, `${bloc.imprimeParExemplaire}`);
+  verifier('deux pages pour le plan', bloc.planParExemplaire === 2, `${bloc.planParExemplaire}`);
+  verifier('six pages par exemplaire', bloc.parExemplaire === 6, `${bloc.parExemplaire}`);
+  verifier('quatorze pages en tout', r.pagination.total === 14, `${r.pagination.total}`);
+  // La feuille se compte à partir de 1 : une page impaire est un recto.
+  verifier('le plan tombe sur un recto',
+    (bloc.exemplaires[0].de + bloc.imprimeParExemplaire) % 2 === 1,
+    `page ${bloc.exemplaires[0].de + bloc.imprimeParExemplaire}`);
+
+  // UN SEUL FORMAT dans tout le document : un pilote qui en voit deux peut
+  // ramener l'ensemble au plus grand, et c'est ainsi qu'un pied de page se
+  // retrouve rogné.
+  const final = await PDFDocument.load(r.octets);
+  const formats = new Set(final.getPages()
+    .map((x) => `${x.getSize().width}x${x.getSize().height}`));
+  verifier('toutes les pages au même format', formats.size === 1, [...formats].join(' '));
+
+  const c = consignes(deux, r.pagination, 'essai.pdf', { demandes: [{ plan: {} }] });
+  verifier('la consigne d’échelle est donnée', c.texte.includes('Ajuster'));
+  verifier('la consigne dit que le plan se détache', c.texte.includes('pièce jointe'));
+}
+
+console.log('\n— chaque demande reçoit SES contours —');
+{
+  // Ce que le plan de situation reçoit, demande par demande. Si ce découpage
+  // rendait un jeu vide, chaque demande sortirait sans plan et sans qu'aucune
+  // erreur ne soit levée : une panne silencieuse, la pire espèce.
+  const a = { section: 'AB', numero: '12' };
+  const b = { section: 'AB', numero: '13' };
+  const c = { section: 'ZC', numero: '104' };
+  const anneau = (n) => [[[n, 50], [n + 1, 50], [n + 1, 51], [n, 51], [n, 50]]];
+  const cadastre = {
+    parcelles: [{ source: a, anneaux: anneau(1) }, { source: b, anneaux: anneau(2) },
+      { source: c, anneaux: anneau(9) }],
+    anneaux: [], journal: [],
+  };
+  const un = decouperCadastre(cadastre, [a, b]);
+  const deux = decouperCadastre(cadastre, [c]);
+  verifier('la première demande reçoit deux contours', un.anneaux.length === 2);
+  verifier('la seconde n’en reçoit qu’un', deux.anneaux.length === 1);
+  verifier('et ce n’est pas le même', deux.parcelles[0].source === c);
+  verifier('un cadastre muet remonte son motif',
+    decouperCadastre({ parcelles: [], anneaux: [], motif: 'rien' }, [a]).motif === 'rien');
 }
 
 console.log('\n— trois parcelles : pas d’annexe —');
