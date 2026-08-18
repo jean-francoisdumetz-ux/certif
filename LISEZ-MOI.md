@@ -19,13 +19,31 @@ elles vivent dans le corps du courriel. Une feuille de consignes internes posée
 en tête du document, c'est une feuille qu'on oublie de retirer avant de fermer
 l'enveloppe.
 
-## Ce qu'il ne fait pas encore
+## Le plan de situation
 
-**Le plan de situation.** C'est la seule pièce exigée à l'appui de la demande
-(R*410-1). CERTIF le signale à l'écran et le courriel demande à l'assistante de
-le joindre. La fabrication sera branchée sur PAINT, qui a déjà le géoréférenceur
-et le fond tuilé — à une échelle près : un plan de situation situe le terrain
-dans la commune, là où PAINT travaille à l'échelle de la parcelle.
+Seule pièce exigée à l'appui de la demande (R*410-1). Il est joint à chaque
+exemplaire, après le Cerfa, et vient de **deux sources, dans cet ordre** :
+
+1. **PAINT** — `GET paint-blue.vercel.app/api/extrait`, qui pilote le Service de
+   Consultation du Plan Cadastral et rend l'**extrait officiel** de la DGFiP.
+   C'est la pièce que les services d'urbanisme lisent. On la demande toujours
+   en premier. Adresse réglable par `CERTIF_PAINT`.
+2. **Une carte fabriquée par CERTIF** — contours du PCI Express via l'API Carto,
+   fond PLAN IGN v2 de la Géoplateforme. Elle ne sert que si PAINT n'a pas
+   répondu, et le repli **se dit** : il remonte en avertissement à l'écran.
+
+Deux pièges hérités, notés dans le code :
+
+- **Le repli d'échelle du SCPC est muet** — « une demande à 1/10000 revient à
+  1/1000 sans un mot », écrit PAINT lui-même. CERTIF ne demande donc que des
+  échelles usuelles (`CERTIF_PLAN_ECHELLES`, défaut 2000 puis 5000 — 1/1000 est écarté, une A4 n'y couvre que 195 × 211 m) et ne
+  rapporte jamais que l'échelle *demandée*, pas celle servie.
+- **Le préfixe**, encore. Le PCI range les parcelles de Lomme sous Lille avec le
+  préfixe 355 ; interroger avec 59355 ne rend rien. CERTIF essaie les
+  combinaisons dans un ordre raisonné et dit laquelle a répondu.
+
+Diagnostic : `POST /api/plan?journal=1` rend tout le cheminement.
+`?sansPaint=1` force la carte de secours pour l'éprouver seule.
 
 ## Déploiement
 
@@ -77,10 +95,14 @@ second secret à faire tourner et un second consentement à obtenir.
 ## Les essais
 
     node essais/bout-en-bout.mjs        la chaîne complète, refus compris
+    node essais/geo.mjs                 projection, échelle, tuiles
+    node essais/plan.mjs                la mise en page du plan, sources simulées
     node essais/apercu.js               un PDF d'exemple à regarder
     node essais/glyphes-couverture.mjs  ce que les polices dessinent vraiment
 
-Aucun ne demande le réseau ni de serveur.
+Aucun ne demande le réseau ni de serveur. Ce qui ne peut pas s'éprouver hors
+ligne — l'appel à PAINT, le cadastre, les tuiles — se vérifie par
+`/api/plan?journal=1`, qui rend le motif plutôt que de le laisser deviner.
 
 ## Ce qui a été constaté, et pas supposé
 

@@ -29,6 +29,10 @@ async function interroger(url) {
 const forme = (c) => ({
   code: c.code,
   nom: c.nom,
+  // Le chef-lieu d'une commune associée ou déléguée. Le cadastre range les
+  // parcelles de Lomme sous Lille — 59350 — avec le préfixe 355 ; sans ce
+  // code, le plan de situation ne les retrouve pas.
+  chefLieu: c.chefLieu || null,
   codePostal: Array.isArray(c.codesPostaux) ? c.codesPostaux[0] : null,
   departement: [
     c.departement ? `${c.departement.nom} (${c.departement.code})` : null,

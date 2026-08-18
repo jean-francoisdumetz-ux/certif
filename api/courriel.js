@@ -23,10 +23,10 @@ export default protege(async (req, res, utilisateur, jetonDelegue) => {
     const destinataires = String(req.body?.destinataire || '')
       .split(/[;,]/).map((s) => s.trim()).filter(Boolean);
 
-    // Le plan de situation n'est pas encore fabriqué par CERTIF : la consigne
-    // le dit à l'assistante, plutôt que de la laisser expédier un dossier
-    // incomplet sans le savoir.
-    const c = consignes(demande, r.pagination, r.fichier, { planJoint: false });
+    // La consigne dit ce que la pièce jointe contient vraiment. Quand le plan
+    // a pu être fabriqué, elle se tait là-dessus ; quand il manque, elle le
+    // réclame en toutes lettres.
+    const c = consignes(demande, r.pagination, r.fichier, { planJoint: Boolean(r.plan) });
     const { html, images } = envelopper(c.html);
 
     const depot = await deposerBrouillon({

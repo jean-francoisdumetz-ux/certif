@@ -30,8 +30,9 @@ export default async function (req, res) {
       entra: Boolean(process.env.AZURE_TENANT_ID && process.env.AZURE_CLIENT_ID),
       boiteService: Boolean(process.env.CERTIF_BOITE_SERVICE || process.env.MATRICE_BOITE_SERVICE),
     },
-    // Ce que CERTIF ne sait pas encore faire, dit ici plutôt que découvert à
-    // l'usage : le plan de situation est la seule pièce exigée par R*410-1.
-    reste: { planDeSituation: false },
+    // Le plan de situation est fabriqué, mais il dépend de deux services
+    // extérieurs : le cadastre et le fond de plan. On dit ici qu'il est branché,
+    // pas qu'il répondra — cela se vérifie sur /api/plan, dossier en main.
+    planDeSituation: { branche: true, diagnostic: '/api/plan?journal=1' },
   });
 }

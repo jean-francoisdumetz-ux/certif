@@ -386,7 +386,9 @@ async function proposerMairie(code) {
 function corpsRequete() {
   return {
     reference: saisie.reference,
-    commune: saisie.commune ? { code: saisie.commune.code, nom: saisie.commune.nom } : {},
+    commune: saisie.commune
+      ? { code: saisie.commune.code, nom: saisie.commune.nom, chefLieu: saisie.commune.chefLieu }
+      : {},
     adresse: saisie.adresse,
     lieuDit: saisie.lieuDit,
     codePostalTerrain: saisie.codePostalTerrain,
