@@ -180,6 +180,30 @@ console.log('\n— deux unités foncières : deux demandes —');
     passe.avertissements.some((a) => a.includes('Chambon')));
 }
 
+console.log('\n— l’imprimé est remonté de 3 mm —');
+{
+  // L'imprimé officiel laisse 9 à 10,7 mm de blanc en haut et 4,2 mm en bas :
+  // mesuré à l'encre sur un tirage réel. Or une laser ne dépose rien à moins de
+  // 4 à 5 mm du bord — le pied de page se perd. On remonte donc le contenu de
+  // 8,5 points, et on le VÉRIFIE en relisant la position du « / 7 » au lieu de
+  // faire confiance à l'appel.
+  const { remplirCerfa } = await import('../lib/cerfa-cu.js');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  globalThis.pdfjsWorker ||= await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+
+  const cerfa = await remplirCerfa(demande, {});
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(cerfa), disableFontFace: true }).promise;
+  const items = (await (await doc.getPage(1)).getTextContent()).items;
+  const pied = items.filter((i) => i.str.includes('/ 7') || i.str.trim() === '/');
+  const y = pied.length ? Math.round(pied[0].transform[5] * 10) / 10 : null;
+
+  // Le « / 7 » du gabarit est sur une ligne de base à 13,5 points en pages 1 et
+  // 2, à 13,3 en page 3 — d'où la mention « Dossier » posée à 13,4, entre les
+  // deux. Remonté de 8,5, le pied de la page 1 doit donc se lire à 22,0.
+  verifier('le pied de page est remonté à 22 points', Math.abs(y - 22) < 0.3, `${y}`);
+  verifier('trois pages seulement', doc.numPages === 3, `${doc.numPages}`);
+}
+
 console.log('\n— le plan ne se met jamais au dos du formulaire —');
 {
   // Le plan de situation est une PIÈCE JOINTE, pas un feuillet de l'imprimé :
@@ -223,7 +247,7 @@ console.log('\n— le plan ne se met jamais au dos du formulaire —');
   verifier('toutes les pages au même format', formats.size === 1, [...formats].join(' '));
 
   const c = consignes(deux, r.pagination, 'essai.pdf', { demandes: [{ plan: {} }] });
-  verifier('la consigne d’échelle est donnée', c.texte.includes('Ajuster'));
+  verifier('la consigne d’échelle est donnée', c.texte.includes('100 %'));
   verifier('la consigne dit que le plan se détache', c.texte.includes('pièce jointe'));
 }
 
