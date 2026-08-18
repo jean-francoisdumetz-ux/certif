@@ -22,36 +22,53 @@ l'enveloppe.
 ## Le plan de situation
 
 Seule pièce exigée à l'appui de la demande (R*410-1). Il est joint à chaque
-exemplaire, après le Cerfa, et vient de **deux sources**. `CERTIF_PLAN_VOIE`
-règle l'ordre — `carte` par défaut, `paint`, ou `paint-seul`.
+exemplaire, après le Cerfa. C'est **l'extrait de plan cadastral officiel de la
+DGFiP, avec la parcelle colorisée**.
 
-1. **La carte fabriquée par CERTIF** — fond PLAN IGN v2 de la Géoplateforme,
-   contour de la parcelle en carmin, échelle graphique, flèche du nord. Elle est
-   **déterministe** : CERTIF compose lui-même la carte, il sait donc à quel
-   point du papier correspond chaque coordonnée, et le contour tombe juste par
-   construction. C'est la seule des deux qui **colore la parcelle**.
-2. **PAINT** — `GET paint-blue.vercel.app/api/extrait`, l'extrait de plan
-   cadastral officiel de la DGFiP. Meilleure pièce sur le fond, mais **sa
-   parcelle n'est pas colorée** et elle ne peut pas l'être depuis une fonction
-   serverless : la colorisation de PAINT vit dans son navigateur et repose sur
-   un géoréférencement par OCR des étiquettes de coordonnées en marge, que son
-   propre code décrit comme « une fermeture insoudable ».
+1. **PAINT** rend l'extrait — `GET paint-blue.vercel.app/api/extrait` — et
+   l'emprise employée dans l'en-tête `X-Paint-Bbox`.
+2. **CERTIF y pose le liseré carmin lui-même** (`lib/colorier.js`). PAINT, à
+   l'écran, colorise par OCR des étiquettes de coordonnées, parce qu'il ne sait
+   pas d'avance comment le service a composé la page. CERTIF le sait : c'est lui
+   qui a demandé l'extrait. Une règle de trois suffit.
+3. **En repli seulement**, une carte de tuiles sur fond cadastral IGN
+   (`lib/plan-situation.js`), si le SCPC ne répond pas. Elle se dit à l'écran.
 
-Trois choses héritées, notées dans le code :
+`CERTIF_PLAN_VOIE` règle l'ordre : `paint` (défaut), `carte`, `paint-seul`.
 
-- **Le repli d'échelle du SCPC est muet, et REDPAR l'a mesuré** : une demande à
-  1/10000 est servie à 1/1000, sans un mot. Les échelles honorées sont 1000,
-  1250, 1500, 2000, 2500, 4000 et 5000 ; CERTIF n'en retient que le haut
-  (`CERTIF_PLAN_ECHELLES`, défaut 2000 à 5000).
-- **Le préfixe**, encore. Le PCI range les parcelles de Lomme sous Lille avec le
-  préfixe 355 ; interroger avec 59355 ne rend rien. CERTIF essaie les
-  combinaisons dans un ordre raisonné et dit laquelle a répondu.
-- **Aucune des deux voies n'est silencieuse** : celle qui a servi remonte à
-  l'écran, et l'avertissement dit quand la parcelle n'est pas colorée.
+### Le cadre a été mesuré, pas supposé
 
-Diagnostic : `POST /api/plan?journal=1` rend tout le cheminement.
-`?sansPaint=1` force la carte, et le bouton « Pourquoi le plan manque » de
-l'écran fait la même chose en un clic.
+Sur un extrait réel de Saint-Omer AV 168 au 1/2000, le 18 août 2026 :
+
+- les étiquettes 1648000 et 1648200 sont centrées à 146,70 et 430,14 pt, soit
+  **283,44 pt pour 200 m** — exactement 100 mm de papier au 1/2000, donc
+  l'échelle demandée a bien été servie ;
+- le cadre dessiné va de 33,8 à 559,4 pt en abscisse et de 33,0 à 602,7 pt en
+  ordonnée, soit 185,4 × 201,0 mm ;
+- `MAP_SIZES` de PAINT annonce 195,5 × 211,0 : **MAPBBOX déborde donc le cadre
+  dessiné de 5 mm de papier sur chacun des quatre côtés.**
+
+`node essais/colorier.mjs` rejoue la mesure sur le fichier et vérifie que la
+règle replace les quatre étiquettes : **écart maximal 0,025 pt, soit 1,7 cm au
+sol**. Reste à confirmer que le cadre est le même à une autre échelle — un
+second extrait au 1/1000 suffirait.
+
+### Trois choses héritées
+
+- **La zone conique ne se déduit pas de la latitude.** PAINT l'a démontré à
+  Boue : 49,93° arrondit à 50, mais le service sert du CC49, 889 km plus bas.
+  CERTIF lit donc la zone sur l'ordonnée de l'emprise rendue —
+  Y₀ = (zone − 41) × 10⁶ + 200 000 — au lieu de la deviner.
+- **Le repli d'échelle du SCPC est muet**, et REDPAR l'a mesuré le 28/07/2026 :
+  une demande à 1/10000 est servie à 1/1000 sans un mot. Échelles honorées :
+  1000, 1250, 1500, 2000, 2500, 4000, 5000. CERTIF n'en retient que le haut
+  (`CERTIF_PLAN_ECHELLES`).
+- **Le préfixe.** Le PCI range les parcelles de Lomme sous Lille avec le préfixe
+  355 ; interroger avec 59355 ne rend rien. CERTIF essaie les combinaisons dans
+  un ordre raisonné et dit laquelle a répondu.
+
+Diagnostic : `POST /api/plan?journal=1`, ou le bouton « Pourquoi le plan
+manque » de l'écran.
 
 ## Déploiement
 

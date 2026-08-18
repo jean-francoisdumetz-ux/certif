@@ -57,9 +57,10 @@ console.log('\n— choix de l’échelle —');
 const cadre = { largeur: 465, hauteur: 470 };
 // Une parcelle de 30 m de côté : la plus serrée des échelles suffit.
 const petite = emprise([[[3.0000, 50.6000], [3.00042, 50.6000], [3.00042, 50.60027], [3.0000, 50.60027]]]);
-// Même minuscule, une parcelle ne descend pas sous 1/5 000 : en dessous, ce
-// n'est plus un plan de situation.
-dire('petite parcelle → 1/5 000', choisirEchelle(petite, cadre) === 5000,
+// Sur fond cadastral, une petite parcelle appelle l'échelle la plus serrée :
+// c'est ce qui rend les numéros voisins lisibles. La série a été rouverte
+// jusqu'à 1/1 000 pour cela.
+dire('petite parcelle → 1/1 000', choisirEchelle(petite, cadre) === 1000,
   `1/${choisirEchelle(petite, cadre)}`);
 
 // Un ensemble de 2 km de large : il faut s'élever.

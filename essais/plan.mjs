@@ -50,7 +50,7 @@ function png(dessiner, cote = 256) {
   ]);
 }
 
-const tuileTemoin = async (col, rang) => ({
+const tuileTemoin = async (col, rang, zoom, fond) => ({
   ok: true,
   octets: png((x, y) => {
     // Bord haut et bord gauche marqués : on voit l'orientation de chaque tuile.

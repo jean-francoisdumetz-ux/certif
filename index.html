@@ -497,9 +497,9 @@ async function genererPdf() {
 
   const ex = cr.pagination?.exemplaires || [];
   const plan = cr.plan
-    ? ` Plan de situation ${cr.plan.voie === 'paint'
-        ? 'extrait cadastral officiel (PAINT), parcelle non colorée'
-        : 'sur fond IGN, parcelle colorée'} au 1/${cr.plan.echelle}.`
+    ? ` Plan : ${cr.plan.voie === 'paint' ? 'extrait cadastral officiel' : 'carte sur fond IGN'}
+        au 1/${cr.plan.echelle}, parcelle ${cr.plan.details?.parcelleColoree === false
+        ? 'NON colorée' : 'colorée'}.`
     : '';
   afficher(`${listeAvertissements(cr.avertissements, cr.plan)}
     <div class="ok"><b>${e(cr.fichier)}</b> — ${cr.pagination?.total} pages :
