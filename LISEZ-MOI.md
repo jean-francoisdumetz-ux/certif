@@ -70,6 +70,124 @@ second extrait au 1/1000 suffirait.
 Diagnostic : `POST /api/plan?journal=1`, ou le bouton « Pourquoi le plan
 manque » de l'écran.
 
+## L'unité foncière
+
+**Une demande de certificat par unité foncière.** Deux parcelles qui ne se
+touchent pas en forment deux — deux Cerfa, deux plis, deux délais. Les réunir
+sur un seul imprimé expose au refus, ou pire à un certificat qui ne couvre
+qu'une partie du terrain sans que rien ne le signale avant l'acte.
+
+Définition : CE 27 juin 2005, *Chambon*, n° 264667 — « un îlot de propriété
+d'un seul tenant, composé d'une ou plusieurs parcelles contiguës appartenant à
+un même propriétaire ». **Deux** conditions.
+
+**CERTIF n'en vérifie qu'une.** Le plan cadastral donne les contours, jamais les
+propriétaires — ceux-là sont dans la matrice, et c'est ce que MATRICE va
+chercher. Le regroupement est donc une proposition géométrique, et l'écran le
+dit à chaque fois.
+
+| Constat | Conduite |
+|---|---|
+| Plusieurs îlots séparés, contours connus | **Une demande par îlot**, dans le même PDF : références `/1`, `/2`, chacune avec sa lettre, son annexe, son plan et ses deux exemplaires |
+| Un seul îlot | Une demande, avec la réserve sur le propriétaire |
+| Contour manquant ou cadastre muet | Une seule demande, avec l'avertissement — une panne du cadastre n'arrête pas les envois de l'étude, et on ne découpe que sur un CONSTAT |
+| Contour manquant **et** plusieurs îlots constatés | La parcelle sans contour est **écartée** de toutes les demandes et nommée : on ne peut pas deviner à quel îlot la rattacher |
+
+Le compte est annoncé partout : à l'écran (« 2 demandes produites »), dans le
+nom du fichier (`CU_LOMME_2026-0117_2-demandes.pdf`), dans l'objet du courriel
+et dans les consignes à l'assistante, qui donnent les bornes de pages de chaque
+demande. **Un pli recommandé par demande** : un avis de réception unique pour
+deux demandes ferait courir un seul justificatif sur deux délais distincts.
+
+Tolérance de contiguïté : 50 cm (`lib/unite-fonciere.js`). Elle absorbe les
+arrondis de numérisation sans jamais rapprocher deux parcelles séparées par une
+sente. Éprouvée hors ligne sur le bord commun, le coin commun, la jonction en T
+et l'écart d'un mètre : `node essais/unite-fonciere.mjs`.
+
+Écran : `POST /api/unites`, relancé tout seul une seconde après la dernière
+frappe, et seulement si les références ont changé — chaque vérification coûte
+jusqu'à quatre interrogations du cadastre par parcelle.
+
+## Plusieurs communes
+
+Un certificat d'urbanisme se demande à la mairie du lieu du terrain : **deux
+communes, ce sont deux mairies, deux plis, deux délais qui courent séparément.**
+Rien ne se mutualise — pas même la lettre, qui s'adresse à « Monsieur le Maire »
+de telle commune.
+
+L'écran porte donc **un bloc par commune**, qui se déroule : sa commune, son
+adresse de terrain, ses parcelles, sa mairie. Le bouton « + ajouter une commune »
+en crée un ; un fichier déposé en crée autant que de communes lues.
+
+**Deux découpages, dans cet ordre** : d'abord la commune, puis l'unité foncière à
+l'intérieur de chacune. Trois communes dont l'une compte deux îlots donnent
+quatre demandes, quatre lettres, quatre plis — et un seul PDF à imprimer.
+
+Références : `15151/1-1`, `/1-2`, `/2-1` — le premier chiffre est la commune, le
+second l'unité foncière. Une seule commune garde la forme courte `/1`, `/2` ; une
+seule demande garde la référence nue.
+
+Le courriel à l'assistante donne, pour chaque demande, ses bornes de pages **et
+l'adresse de sa mairie**, en clair dans l'étape. Les blocs postaux sont repris en
+fin de message, un par commune.
+
+## Importer une liste de parcelles
+
+Colonne de droite de l'écran : on y dépose un fichier, `POST /api/importer` le
+lit, l'écran affiche ce qui a été reconnu, on coche, on reporte.
+
+| Format | Lecture |
+|---|---|
+| `.xlsx` | L'archive XML lue directement (`fflate`) — pas de bibliothèque de tableur, rien qui interprète une formule |
+| plusieurs fichiers | Déposés ensemble : trois relevés, trois communes, trois blocs |
+| `.csv` | Séparateur détecté sur le fichier entier, guillemets respectés |
+| `.pdf` (relevé de propriété, « M1 ») | `pdfjs-dist` rend les mots avec leurs coordonnées ; CERTIF les regroupe par ordonnée pour reconstituer les lignes |
+
+Une colonne **Commune** (ou **Code INSEE**) suffit à faire naître un bloc par
+commune, dans l'ordre d'apparition du fichier. Sans elle, il n'y a qu'un groupe,
+et sa commune reste à choisir — l'import ne prétend pas connaître ce qu'il n'a
+pas lu.
+
+La clef de lecture est la paire **section + numéro côte à côte** : c'est la
+seule chose stable d'un relevé à l'autre. Un en-tête reconnu (Section, N°,
+Préfixe, Contenance, Lieudit) l'emporte quand il y en a un.
+
+**La contenance n'est prise que si elle est écrite en hectares-ares-centiares**
+(« 00 08 42 »), la forme du relevé. Un nombre isolé sur une ligne de M1 peut
+être un code Rivoli, un revenu cadastral ou une année : dans le doute, rien —
+et l'écran le dit. Une contenance fausse au dossier vaut moins qu'une absente.
+
+**Rien n'est enchaîné.** Un relevé porte toutes les parcelles d'un propriétaire
+dans la commune, souvent bien plus que celles qui sont vendues : l'import
+propose, le notaire coche, le report remplace la saisie. Les scans ne sont pas
+lus — c'est dit explicitement plutôt que de rendre une liste vide.
+
+Diagnostic : le bouton « Ce que CERTIF a lu » (`POST /api/importer?journal=1`)
+rend les lignes telles qu'elles ont été reconstituées. C'est ce qu'il faut
+regarder le jour où un relevé d'une autre facture ne rend rien.
+
+Éprouvé hors ligne sur trois pièces (`node essais/import.mjs`) : un tableur avec
+en-tête et ligne de total, un csv sans en-tête, et un relevé de propriété
+reconstitué — colonnes, contenances en ha-a-ca, doublon bâti/non bâti compris.
+Cet essai vérifie la mécanique, **pas** que la mise en page réelle de la DGFiP
+soit celle-là : le premier vrai relevé déposé sera l'épreuve véritable.
+
+## L'adresse du terrain
+
+Cherchée dans la **Base Adresse Nationale** (`api-adresse.data.gouv.fr`, ouvert,
+sans clef) et **limitée à la commune retenue** : sans ce filtre, « 12 rue de la
+Gare » proposerait les milliers de rues de la Gare de France.
+
+Le piège des communes associées, encore : la BAN range les adresses de Lomme
+sous Lille et ne connaît pas 59355. `GET /api/adresses` essaie le code de la
+commune, puis celui du chef-lieu, puis sans filtre en ajoutant le nom de la
+commune — et **dit** lequel a répondu.
+
+Rien n'est imposé : le champ reste libre, parce qu'un terrain nu n'a souvent pas
+d'adresse. La différence entre « vérifiée » et « saisie à la main » est écrite
+sous le champ. Le champ *lieu-dit* distinct a été retiré — il faisait saisir deux
+fois la même chose et partait dans une case du Cerfa que personne ne relisait.
+
 ## Déploiement
 
 ### Fichiers à déposer dans `data/`

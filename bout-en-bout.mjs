@@ -180,6 +180,166 @@ console.log('\n— deux unités foncières : deux demandes —');
     passe.avertissements.some((a) => a.includes('Chambon')));
 }
 
+console.log('\n— plusieurs communes, plusieurs mairies —');
+{
+  // Le cas que le dossier de succession présente tous les mois : des terrains
+  // dans deux communes, dont l'une compte deux îlots séparés. Trois demandes,
+  // trois lettres, trois plis, DEUX adresses.
+  const lot = demandeDepuisRequete({
+    reference: '15151',
+    accepterVoieElectronique: true,
+    date: '2026-08-18T00:00:00Z',
+    communes: [
+      {
+        commune: { code: '59009', nom: 'Villeneuve-d’Ascq' },
+        adresse: '11 allée du Tennis',
+        codePostalTerrain: '59650',
+        mairie: {
+          nom: 'Mairie de Villeneuve-d’Ascq', adresse: '1 place Salvador Allende',
+          codePostal: '59650', commune: 'Villeneuve-d’Ascq',
+        },
+        parcelles: [
+          { section: 'NL', numero: '113', contenance: 1429 },
+          { section: 'NL', numero: '117', contenance: 2370 },
+          { section: 'ZC', numero: '294', contenance: 858 },
+        ],
+      },
+      {
+        commune: { code: '59355', nom: 'Lomme' },
+        adresse: '14 rue du Petit Belgique',
+        codePostalTerrain: '59160',
+        mairie: {
+          nom: 'Mairie de Lomme', adresse: '160 rue Sadi Carnot',
+          codePostal: '59160', commune: 'Lomme',
+        },
+        parcelles: [{ prefixe: '355', section: 'AB', numero: '12', contenance: 842 }],
+      },
+    ],
+  });
+
+  verifier('deux terrains lus', lot.terrains.length === 2);
+  verifier('chaque terrain a SA mairie',
+    lot.terrains[0].mairie.codePostal === '59650' && lot.terrains[1].mairie.codePostal === '59160');
+
+  // Cadastre simulé : à Villeneuve, deux parcelles contiguës et une isolée ;
+  // à Lomme, une seule parcelle.
+  const carre = (dx, dy = 0) => {
+    const x = 3.14 + dx * 1e-5;
+    const y = 50.62 + dy * 1e-5;
+    return [[[x, y], [x + 1e-4, y], [x + 1e-4, y + 1e-4], [x, y + 1e-4], [x, y]]];
+  };
+  const [a, b, c] = lot.terrains[0].parcelles;
+  const [d] = lot.terrains[1].parcelles;
+  const cadastres = [
+    {
+      parcelles: [
+        { source: a, anneaux: carre(0) },
+        { source: b, anneaux: carre(10) },
+        { source: c, anneaux: carre(400) },
+      ],
+      anneaux: [], journal: [],
+    },
+    { parcelles: [{ source: d, anneaux: carre(0, 900) }], anneaux: [], journal: [] },
+  ];
+
+  const r = await preparerDossier(lot, undefined, { cadastres, sansPlan: true });
+  verifier('trois demandes', r.demandes.length === 3, `${r.demandes.length}`);
+  verifier('références commune-unité',
+    r.demandes.map((x) => x.reference).join(' ') === '15151/1-1 15151/1-2 15151/2-1',
+    r.demandes.map((x) => x.reference).join(' '));
+  verifier('la troisième relève de Lomme', r.demandes[2].commune === 'Lomme');
+  verifier('chaque demande porte SON adresse de mairie',
+    r.demandes[0].mairie.includes('59650') && r.demandes[2].mairie.includes('59160'));
+  verifier('le nom de fichier compte les communes',
+    r.fichier === 'CU_2-COMMUNES_15151_3-demandes.pdf', r.fichier);
+  verifier('deux communes rendues', r.communes.length === 2);
+  verifier('la première en donne deux', r.communes[0].demandes === 2);
+
+  // Trois demandes de 2 + 8 pages : 30 pages.
+  verifier('trente pages', r.pagination.total === 30, `${r.pagination.total}`);
+
+  const c3 = consignes(lot, r.pagination, r.fichier, { demandes: r.demandes });
+  verifier('l’objet annonce deux communes', /2 communes/.test(c3.objet), c3.objet);
+  verifier('les deux adresses figurent',
+    c3.texte.includes('Salvador Allende') && c3.texte.includes('Sadi Carnot'));
+  verifier('l’adresse est rappelée dans l’étape', c3.texte.includes('À envoyer à :'));
+  verifier('les deux versions comptent les mêmes étapes',
+    (c3.texte.match(/^\d+\. /gm) || []).length
+    === (c3.html.match(/<p class=MsoNormal>\d+\.&nbsp;/g) || []).length);
+  verifier('le pli unique est explicitement écarté', c3.texte.includes('3 plis SÉPARÉS'));
+}
+
+console.log('\n— l’imprimé est remonté de 3 mm —');
+{
+  // L'imprimé officiel laisse 9 à 10,7 mm de blanc en haut et 4,2 mm en bas :
+  // mesuré à l'encre sur un tirage réel. Or une laser ne dépose rien à moins de
+  // 4 à 5 mm du bord — le pied de page se perd. On remonte donc le contenu de
+  // 8,5 points, et on le VÉRIFIE en relisant la position du « / 7 » au lieu de
+  // faire confiance à l'appel.
+  const { remplirCerfa } = await import('../lib/cerfa-cu.js');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  globalThis.pdfjsWorker ||= await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+
+  const cerfa = await remplirCerfa(demande, {});
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(cerfa), disableFontFace: true }).promise;
+  const items = (await (await doc.getPage(1)).getTextContent()).items;
+  const pied = items.filter((i) => i.str.includes('/ 7') || i.str.trim() === '/');
+  const y = pied.length ? Math.round(pied[0].transform[5] * 10) / 10 : null;
+
+  // Le « / 7 » du gabarit est sur une ligne de base à 13,5 points en pages 1 et
+  // 2, à 13,3 en page 3 — d'où la mention « Dossier » posée à 13,4, entre les
+  // deux. Remonté de 8,5, le pied de la page 1 doit donc se lire à 22,0.
+  verifier('le pied de page est remonté à 22 points', Math.abs(y - 22) < 0.3, `${y}`);
+  verifier('trois pages seulement', doc.numPages === 3, `${doc.numPages}`);
+}
+
+console.log('\n— le plan ne se met jamais au dos du formulaire —');
+{
+  // Le plan de situation est une PIÈCE JOINTE, pas un feuillet de l'imprimé :
+  // le service le détache pour le verser au dossier. Au verso de la dernière
+  // page du Cerfa, il faudrait couper la feuille pour l'en séparer.
+  const { remplirCerfa } = await import('../lib/cerfa-cu.js');
+  const { construireAnnexe } = await import('../lib/annexe.js');
+  const { construireDossier } = await import('../lib/dossier-pdf.js');
+  const { PDFDocument } = await import('pdf-lib');
+
+  const deux = demandeDepuisRequete({ ...COMPLET, parcelles: COMPLET.parcelles.slice(0, 2) });
+  const faux = await PDFDocument.create();
+  faux.addPage([595, 842]); // le format de l'extrait du cadastre, différent d'un cheveu
+  const plan = await faux.save();
+
+  const cerfa = await remplirCerfa(deux, {});
+  const annexe = await construireAnnexe(deux);
+  const r = await construireDossier({
+    dossiers: [{ demande: deux, cerfa, annexe: annexe?.octets, plan }],
+  });
+  const bloc = r.pagination.dossiers[0];
+
+  // Trois pages d'imprimé complétées à quatre, puis une page de plan complétée
+  // à deux : six pages par exemplaire, et le plan commence sur une feuille
+  // neuve dans chacun.
+  verifier('quatre pages d’imprimé', bloc.imprimeParExemplaire === 4, `${bloc.imprimeParExemplaire}`);
+  verifier('deux pages pour le plan', bloc.planParExemplaire === 2, `${bloc.planParExemplaire}`);
+  verifier('six pages par exemplaire', bloc.parExemplaire === 6, `${bloc.parExemplaire}`);
+  verifier('quatorze pages en tout', r.pagination.total === 14, `${r.pagination.total}`);
+  // La feuille se compte à partir de 1 : une page impaire est un recto.
+  verifier('le plan tombe sur un recto',
+    (bloc.exemplaires[0].de + bloc.imprimeParExemplaire) % 2 === 1,
+    `page ${bloc.exemplaires[0].de + bloc.imprimeParExemplaire}`);
+
+  // UN SEUL FORMAT dans tout le document : un pilote qui en voit deux peut
+  // ramener l'ensemble au plus grand, et c'est ainsi qu'un pied de page se
+  // retrouve rogné.
+  const final = await PDFDocument.load(r.octets);
+  const formats = new Set(final.getPages()
+    .map((x) => `${x.getSize().width}x${x.getSize().height}`));
+  verifier('toutes les pages au même format', formats.size === 1, [...formats].join(' '));
+
+  const c = consignes(deux, r.pagination, 'essai.pdf', { demandes: [{ plan: {} }] });
+  verifier('la consigne d’échelle est donnée', c.texte.includes('100 %'));
+  verifier('la consigne dit que le plan se détache', c.texte.includes('pièce jointe'));
+}
+
 console.log('\n— chaque demande reçoit SES contours —');
 {
   // Ce que le plan de situation reçoit, demande par demande. Si ce découpage

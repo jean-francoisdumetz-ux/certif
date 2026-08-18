@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CERTIF — demande de certificat d'urbanisme</title>
+<title>CERTIF — demandes de certificat d'urbanisme</title>
 <style>
 :root{
   --nuit:#0F2238; --nuit2:#16304d; --ocre:#E3CC7A; --canard:#33838B;
@@ -14,13 +14,14 @@
 body{margin:0;background:var(--nuit);color:var(--texte);line-height:1.5;
   font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
   -webkit-font-smoothing:antialiased}
-.wrap{max-width:880px;margin:0 auto;padding:36px 24px 90px}
+.wrap{max-width:1040px;margin:0 auto;padding:36px 24px 90px}
 header{border-bottom:2px solid var(--ocre);padding-bottom:16px;margin-bottom:26px}
 .eyebrow{color:var(--ocre);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;margin:0 0 8px}
 h1{margin:0 0 6px;font-size:26px;font-weight:600;letter-spacing:-.01em}
 .sub{color:var(--gris);font-size:14px;margin:0}
 h2{font-size:15px;font-weight:600;color:var(--ocre);margin:30px 0 4px;letter-spacing:.01em}
 h2 + .aide{color:var(--gris);font-size:13px;margin:0 0 12px}
+h3{font-size:13px;font-weight:600;color:var(--ocre);margin:18px 0 8px;letter-spacing:.02em}
 .centre{text-align:center;padding:70px 20px}
 label{display:block;font-size:12px;color:var(--gris);margin:0 0 4px}
 input,select{width:100%;padding:9px 11px;border-radius:5px;border:1px solid rgba(255,255,255,.14);
@@ -30,7 +31,7 @@ input[readonly]{opacity:.7}
 .rang{display:grid;gap:12px;margin-bottom:12px}
 .r2{grid-template-columns:1fr 1fr}
 .r3{grid-template-columns:1fr 1fr 1fr}
-.parcelle{display:grid;grid-template-columns:80px 80px 1fr 1fr 36px;gap:10px;align-items:end;margin-bottom:8px}
+.parcelle{display:grid;grid-template-columns:74px 74px 1fr 1fr 34px;gap:8px;align-items:end;margin-bottom:8px}
 button{font:inherit;font-size:14px;padding:9px 16px;border-radius:5px;cursor:pointer;
   border:1px solid rgba(255,255,255,.18);background:transparent;color:var(--texte)}
 button:hover{border-color:var(--ocre)}
@@ -58,20 +59,40 @@ button:disabled{opacity:.4;cursor:default}
 a{color:var(--ocre)}
 
 /* Deux colonnes : la saisie à gauche, le dépôt de fichier à droite. Sous
-   900 px — un portable en écran partagé — elles se remettent l'une sous
+   980 px — un portable en écran partagé — elles se remettent l'une sous
    l'autre plutôt que de se comprimer. */
 .colonnes{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
-@media (max-width:900px){.colonnes{grid-template-columns:1fr}}
+@media (max-width:980px){.colonnes{grid-template-columns:1fr}}
 .depot{border:1px dashed rgba(227,204,122,.45);border-radius:6px;padding:22px 16px;text-align:center;
   font-size:13px;color:var(--gris);cursor:pointer;background:rgba(255,255,255,.02);transition:.15s}
 .depot:hover,.depot.survol{border-color:var(--ocre);background:rgba(227,204,122,.08);color:var(--texte)}
 .depot b{color:var(--texte);display:block;font-size:13.5px;margin-bottom:5px}
-.lues{margin-top:12px;border:1px solid var(--ligne);border-radius:5px;max-height:320px;overflow:auto}
+.lues{margin-top:12px;border:1px solid var(--ligne);border-radius:5px;max-height:340px;overflow:auto}
 .lues table{border-collapse:collapse;width:100%;font-size:12.5px}
 .lues td,.lues th{padding:5px 7px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
 .lues th{color:var(--ocre);font-weight:600;font-size:11.5px;position:sticky;top:0;background:var(--nuit)}
 .lues input[type=checkbox]{width:auto}
 .lues .gris{color:var(--gris)}
+.lues .commune{background:rgba(227,204,122,.07);font-weight:600}
+
+/* UN BLOC PAR COMMUNE. Il se déroule : une saisie de six communes tiendrait
+   sinon sur trois écrans, et on ne verrait jamais l'ensemble du dossier. */
+.bloc{border:1px solid var(--ligne);border-radius:6px;margin-bottom:12px;background:rgba(255,255,255,.02)}
+.bloc[open]{background:rgba(255,255,255,.03)}
+.bloc>summary{padding:12px 15px;cursor:pointer;display:flex;gap:10px;align-items:center;
+  font-size:14px;list-style:none}
+.bloc>summary::-webkit-details-marker{display:none}
+.bloc>summary::before{content:'▸';color:var(--ocre);font-size:12px;width:10px}
+.bloc[open]>summary::before{content:'▾'}
+.bloc>summary b{font-weight:600}
+.bloc>summary .quoi{color:var(--gris);font-size:12.5px;margin-left:auto;text-align:right}
+.corps{padding:2px 15px 16px}
+.rangEntete{display:flex;align-items:center;gap:10px;margin:22px 0 10px}
+.rangEntete h2{margin:0}
+.pastille{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;
+  border:1px solid var(--ligne);color:var(--gris)}
+.pastille.bien{border-color:rgba(51,131,139,.6);color:#8fd4d9}
+.pastille.attention{border-color:rgba(255,152,45,.6);color:#ffc37a}
 </style>
 </head>
 <body>
@@ -104,19 +125,35 @@ let mode = 'entra', recette = { passe: null, initiales: null };
 // L'état de la saisie vit ici, et nulle part ailleurs. CERTIF n'a pas de base :
 // une demande se saisit, se produit, et s'en va. Rien n'est conservé — ce qui
 // évite d'avoir à répondre un jour de ce qu'on garde.
+//
+// UN BLOC PAR COMMUNE. Chaque bloc porte sa commune, l'adresse du terrain, ses
+// parcelles et SA MAIRIE : deux communes, ce sont deux mairies, donc deux plis.
+// Rien ne se mutualise d'un bloc à l'autre, hormis la référence de dossier.
+let compteur = 0;
 const saisie = {
   reference: '',
-  commune: null,          // { code, nom, codePostal, departement }
-  adresse: '', codePostalTerrain: '',
-  // Vraie tant que l'adresse affichée vient d'un choix dans la Base Adresse
-  // Nationale. Retombe à faux dès la première frappe : une adresse retouchée
-  // après coup n'est plus celle qui a été vérifiée.
-  adresseVerifiee: false,
-  parcelles: [ligneVide()],
-  mairie: { nom: '', adresse: '', complement: '', codePostal: '', commune: '' },
+  communes: [blocVide()],
   accepterVoieElectronique: true,
   destinataire: '',
 };
+
+function blocVide() {
+  compteur += 1;
+  return {
+    id: compteur,
+    commune: null,                 // { code, nom, chefLieu, codePostal }
+    adresse: '',
+    codePostalTerrain: '',
+    // Vraie tant que l'adresse affichée vient d'un choix dans la Base Adresse
+    // Nationale. Retombe à faux dès la première frappe : une adresse retouchée
+    // après coup n'est plus celle qui a été vérifiée.
+    adresseVerifiee: false,
+    mairie: { nom: '', adresse: '', complement: '', codePostal: '', commune: '' },
+    parcelles: [ligneVide()],
+    ouvert: true,
+    signature: null,               // la saisie dont dépend le dernier comptage
+  };
+}
 
 function ligneVide() { return { prefixe: '', section: '', numero: '', contenance: '' }; }
 
@@ -209,83 +246,44 @@ function dessiner(message = '') {
   app.innerHTML = `
 <header>
   <p class="eyebrow">CERTIF · FIDAL Notaires</p>
-  <h1>Demande de certificat d’urbanisme d’information</h1>
-  <p class="sub">Cerfa n° 13410*13 — deux exemplaires, une lettre, un seul PDF à imprimer.</p>
+  <h1>Demandes de certificat d’urbanisme d’information</h1>
+  <p class="sub">Cerfa n° 13410*13 — une demande par unité foncière et par commune, un seul PDF à imprimer.</p>
 </header>
 
 <div id="msg">${message}</div>
 
 <h2>Dossier</h2>
-<p class="aide">La référence figure au pied de chaque page du formulaire et dans le suivi de dossier.</p>
-<div class="rang"><div><input id="ref" placeholder="2026-0117" value="${e(saisie.reference)}"></div></div>
-
-<h2>Commune</h2>
-<p class="aide">Tapez le nom, puis choisissez : les communes associées et déléguées — Lomme, rattachée à
-Lille — figurent dans la liste, et leurs parcelles ne se désignent pas sous le nom du chef-lieu.</p>
-<div class="rang"><div>
-  <input id="rechCommune" placeholder="Lomme, Saint-André…" autocomplete="off"
-    value="${e(saisie.commune ? saisie.commune.nom : '')}">
-  <div class="etat" id="etatCommune">${saisie.commune
-    ? `${e(saisie.commune.nom)} — code INSEE ${e(saisie.commune.code)}` : ''}</div>
-  <div id="listeCommunes"></div>
-</div></div>
+<p class="aide">La référence figure au pied de chaque page du formulaire. Quand le dossier compte
+plusieurs communes ou plusieurs unités foncières, chaque demande la porte suffixée — 15151/1-1, /1-2, /2-1.</p>
+<div class="rang"><div><input id="ref" placeholder="15151" value="${e(saisie.reference)}"></div></div>
 
 <div class="colonnes">
 <div>
 
-<h2>Terrain</h2>
-<p class="aide">Tapez l’adresse, puis choisissez dans la liste : elle est cherchée dans la Base Adresse
-Nationale, limitée à la commune retenue. Un terrain qui n’y figure pas se saisit librement.</p>
-<div class="rang" style="grid-template-columns:2fr 1fr">
-  <div>
-    <label>Adresse</label>
-    <input id="adr" value="${e(saisie.adresse)}" placeholder="14 rue du Petit Belgique" autocomplete="off">
-    <div class="etat" id="etatAdresse">${saisie.adresseVerifiee
-      ? 'adresse vérifiée dans la Base Adresse Nationale' : ''}</div>
-    <div id="listeAdresses"></div>
+  <div class="rangEntete">
+    <h2 style="margin:0">Communes et terrains</h2>
+    <span class="pastille" id="compteBlocs"></span>
   </div>
-  <div><label>Code postal</label><input id="cpT" value="${e(saisie.codePostalTerrain)}" maxlength="5"></div>
-</div>
-
-<h2>Parcelles</h2>
-<p class="aide">Au-delà de trois, elles passent toutes sur une annexe et le cadre 4.2 du formulaire y renvoie.
-Le préfixe n’est à renseigner que pour une commune associée ou déléguée.</p>
-<div id="parcelles"></div>
-<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-  <button class="discret" id="ajouter">+ ajouter une parcelle</button>
-  <button class="discret" id="btnUnites" style="border:1px solid rgba(255,255,255,.18)">Vérifier l’unité foncière</button>
-</div>
-<div id="etatUnites"></div>
+  <div id="blocs"></div>
+  <button class="discret" id="ajouterCommune"
+    style="border:1px solid rgba(255,255,255,.18)">+ ajouter une commune</button>
 
 </div>
 <div>
 
-<h2>Importer une liste</h2>
-<p class="aide">Un relevé de propriété (PDF), un tableur ou un .csv. CERTIF en tire les références,
-vous cochez ce qui est vendu, et il génère un certificat par unité foncière.</p>
-<div class="depot" id="depot">
-  <b>Déposer un fichier</b>
-  relevé de propriété PDF, .xlsx ou .csv — ou cliquer pour choisir
-</div>
-<input type="file" id="fichier" accept=".pdf,.xlsx,.csv,application/pdf" style="display:none">
-<div id="importResultat"></div>
+  <h2>Importer une liste</h2>
+  <p class="aide">Un relevé de propriété, un extrait cadastral modèle 1, un tableur ou un .csv —
+  plusieurs fichiers à la fois si besoin. Une colonne « Commune » suffit à créer autant de blocs
+  que de communes.</p>
+  <div class="depot" id="depot">
+    <b>Déposer un ou plusieurs fichiers</b>
+    PDF, .xlsx ou .csv — ou cliquer pour choisir
+  </div>
+  <input type="file" id="fichier" multiple accept=".pdf,.xlsx,.csv,application/pdf" style="display:none">
+  <div id="importResultat"></div>
 
 </div>
 </div>
-
-<h2>Mairie destinataire</h2>
-<p class="aide">Proposée par l’annuaire de l’administration, modifiable. C’est cette adresse qui figure sur
-le recommandé.</p>
-<div class="rang r2">
-  <div><label>Nom</label><input id="mNom" value="${e(saisie.mairie.nom)}"></div>
-  <div><label>Complément</label><input id="mComp" value="${e(saisie.mairie.complement)}"></div>
-</div>
-<div class="rang r3">
-  <div><label>Adresse</label><input id="mAdr" value="${e(saisie.mairie.adresse)}"></div>
-  <div><label>Code postal</label><input id="mCp" value="${e(saisie.mairie.codePostal)}" maxlength="5"></div>
-  <div><label>Commune</label><input id="mCom" value="${e(saisie.mairie.commune)}"></div>
-</div>
-<div class="etat" id="etatMairie"></div>
 
 <h2>Signature et options</h2>
 <div class="rang r2">
@@ -305,73 +303,187 @@ le recommandé.</p>
   <span class="etat" id="etatAction"></span>
 </div>`;
 
-  dessinerParcelles();
+  dessinerBlocs();
   brancher();
 }
 
-function dessinerParcelles() {
-  const hote = document.getElementById('parcelles');
-  hote.innerHTML = saisie.parcelles.map((p, i) => `
+function brancher() {
+  const champ = document.getElementById('ref');
+  champ.oninput = () => { saisie.reference = champ.value; };
+  const dest = document.getElementById('dest');
+  dest.oninput = () => { saisie.destinataire = dest.value; };
+  document.getElementById('voie').onchange = (ev) => {
+    saisie.accepterVoieElectronique = ev.target.checked;
+  };
+  document.getElementById('ajouterCommune').onclick = () => {
+    // La nouvelle commune s'ouvre, les autres se replient : on vient d'ajouter
+    // pour saisir, pas pour relire ce qui précède.
+    saisie.communes.forEach((b) => { b.ouvert = false; });
+    saisie.communes.push(blocVide());
+    dessinerBlocs();
+  };
+  brancherDepot();
+  document.getElementById('btnPdf').onclick = () => agir('pdf');
+  document.getElementById('btnMail').onclick = () => agir('mail');
+}
+
+/* --------------------------------------------------- les blocs de communes */
+
+function dessinerBlocs() {
+  const hote = document.getElementById('blocs');
+  hote.innerHTML = saisie.communes.map((b, i) => gabaritBloc(b, i)).join('');
+  saisie.communes.forEach((b) => brancherBloc(b));
+  majCompte();
+}
+
+function gabaritBloc(b, i) {
+  const n = b.parcelles.filter((p) => p.section || p.numero).length;
+  return `
+<details class="bloc" id="bloc${b.id}" ${b.ouvert ? 'open' : ''}>
+  <summary>
+    <b id="titre${b.id}">${b.commune ? e(b.commune.nom) : `Commune n° ${i + 1}`}</b>
+    <span class="quoi" id="quoi${b.id}">${n ? `${n} parcelle(s)` : 'à renseigner'}</span>
+  </summary>
+  <div class="corps">
+    <h3>Commune</h3>
+    <div class="rang"><div>
+      <input id="rech${b.id}" placeholder="Villeneuve-d’Ascq, Lomme…" autocomplete="off"
+        value="${e(b.commune ? b.commune.nom : '')}">
+      <div class="etat" id="etatCommune${b.id}">${b.commune
+        ? `${e(b.commune.nom)} — code INSEE ${e(b.commune.code)}` : ''}</div>
+      <div id="listeCommunes${b.id}"></div>
+    </div></div>
+
+    <h3>Terrain</h3>
+    <div class="rang" style="grid-template-columns:2fr 1fr">
+      <div>
+        <label>Adresse</label>
+        <input id="adr${b.id}" value="${e(b.adresse)}" placeholder="11 allée du Tennis" autocomplete="off">
+        <div class="etat" id="etatAdresse${b.id}">${b.adresseVerifiee
+          ? 'adresse vérifiée dans la Base Adresse Nationale' : ''}</div>
+        <div id="listeAdresses${b.id}"></div>
+      </div>
+      <div><label>Code postal</label><input id="cpT${b.id}" value="${e(b.codePostalTerrain)}" maxlength="5"></div>
+    </div>
+
+    <h3>Parcelles</h3>
+    <div id="parcelles${b.id}"></div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <button class="discret" data-ajout="${b.id}">+ ajouter une parcelle</button>
+      <button class="discret" data-unites="${b.id}"
+        style="border:1px solid rgba(255,255,255,.18)">Vérifier l’unité foncière</button>
+    </div>
+    <div id="etatUnites${b.id}"></div>
+
+    <h3>Mairie destinataire</h3>
+    <div class="rang r2">
+      <div><label>Nom</label><input id="mNom${b.id}" value="${e(b.mairie.nom)}"></div>
+      <div><label>Complément</label><input id="mComp${b.id}" value="${e(b.mairie.complement)}"></div>
+    </div>
+    <div class="rang r3">
+      <div><label>Adresse</label><input id="mAdr${b.id}" value="${e(b.mairie.adresse)}"></div>
+      <div><label>Code postal</label><input id="mCp${b.id}" value="${e(b.mairie.codePostal)}" maxlength="5"></div>
+      <div><label>Commune</label><input id="mCom${b.id}" value="${e(b.mairie.commune)}"></div>
+    </div>
+    <div class="etat" id="etatMairie${b.id}"></div>
+
+    <div style="margin-top:14px;text-align:right">
+      <button class="discret" data-suppr="${b.id}">retirer cette commune</button>
+    </div>
+  </div>
+</details>`;
+}
+
+function brancherBloc(b) {
+  const par = (prefixe) => document.getElementById(`${prefixe}${b.id}`);
+  const lier = (prefixe, clef, sur = b) => {
+    const champ = par(prefixe);
+    if (champ) champ.oninput = () => { sur[clef] = champ.value; };
+  };
+  lier('cpT', 'codePostalTerrain');
+  lier('mNom', 'nom', b.mairie); lier('mComp', 'complement', b.mairie);
+  lier('mAdr', 'adresse', b.mairie); lier('mCp', 'codePostal', b.mairie);
+  lier('mCom', 'commune', b.mairie);
+
+  // Le pli se replie ou se déroule : on retient l'état, sinon un redessin
+  // rouvrirait tout.
+  par('bloc').ontoggle = () => { b.ouvert = par('bloc').open; };
+
+  document.querySelector(`[data-ajout="${b.id}"]`).onclick = () => {
+    b.parcelles.push(ligneVide()); dessinerParcelles(b);
+  };
+  document.querySelector(`[data-unites="${b.id}"]`).onclick = () => verifierUnites(b, true);
+  document.querySelector(`[data-suppr="${b.id}"]`).onclick = () => {
+    saisie.communes = saisie.communes.filter((x) => x !== b);
+    if (!saisie.communes.length) saisie.communes.push(blocVide());
+    dessinerBlocs();
+  };
+
+  dessinerParcelles(b);
+  chercherCommuneEnDirect(b);
+  chercherAdresseEnDirect(b);
+}
+
+function majCompte() {
+  const pastille = document.getElementById('compteBlocs');
+  if (!pastille) return;
+  const n = saisie.communes.length;
+  const parcelles = saisie.communes
+    .reduce((s, b) => s + b.parcelles.filter((p) => p.section || p.numero).length, 0);
+  pastille.textContent = `${n} commune${n > 1 ? 's' : ''} · ${parcelles} parcelle${parcelles > 1 ? 's' : ''}`;
+}
+
+function majEntete(b) {
+  const titre = document.getElementById(`titre${b.id}`);
+  const quoi = document.getElementById(`quoi${b.id}`);
+  const rang = saisie.communes.indexOf(b) + 1;
+  if (titre) titre.textContent = b.commune ? b.commune.nom : `Commune n° ${rang}`;
+  const n = b.parcelles.filter((p) => p.section || p.numero).length;
+  if (quoi) quoi.textContent = n ? `${n} parcelle(s)` : 'à renseigner';
+  majCompte();
+}
+
+function dessinerParcelles(b) {
+  const hote = document.getElementById(`parcelles${b.id}`);
+  if (!hote) return;
+  hote.innerHTML = b.parcelles.map((p, i) => `
     <div class="parcelle">
       <div>${i === 0 ? '<label>Préfixe</label>' : ''}<input data-p="${i}" data-c="prefixe" value="${e(p.prefixe)}" maxlength="3"></div>
       <div>${i === 0 ? '<label>Section</label>' : ''}<input data-p="${i}" data-c="section" value="${e(p.section)}" maxlength="2"></div>
       <div>${i === 0 ? '<label>Numéro</label>' : ''}<input data-p="${i}" data-c="numero" value="${e(p.numero)}" maxlength="4"></div>
       <div>${i === 0 ? '<label>Contenance (m²)</label>' : ''}<input data-p="${i}" data-c="contenance" value="${e(p.contenance)}" inputmode="numeric"></div>
-      <div><button class="discret" data-suppr="${i}" title="retirer">×</button></div>
+      <div><button class="discret" data-suppr-p="${i}" title="retirer">×</button></div>
     </div>`).join('');
 
   hote.querySelectorAll('input').forEach((champ) => {
     champ.oninput = () => {
-      saisie.parcelles[+champ.dataset.p][champ.dataset.c] = champ.value;
+      b.parcelles[+champ.dataset.p][champ.dataset.c] = champ.value;
+      majEntete(b);
       // Une saisie modifiée périme le comptage : laisser affiché « une seule
       // unité foncière » pendant qu'une quatrième parcelle s'ajoute serait pire
       // que de ne rien afficher.
-      programmerUnites();
+      programmerUnites(b);
     };
   });
-  hote.querySelectorAll('[data-suppr]').forEach((b) => {
-    b.onclick = () => {
-      saisie.parcelles.splice(+b.dataset.suppr, 1);
-      if (!saisie.parcelles.length) saisie.parcelles.push(ligneVide());
-      dessinerParcelles();
-      programmerUnites();
+  hote.querySelectorAll('[data-suppr-p]').forEach((bouton) => {
+    bouton.onclick = () => {
+      b.parcelles.splice(+bouton.dataset.supprP, 1);
+      if (!b.parcelles.length) b.parcelles.push(ligneVide());
+      dessinerParcelles(b);
+      majEntete(b);
+      programmerUnites(b);
     };
   });
-}
-
-function brancher() {
-  const lier = (id, clef, sur = saisie) => {
-    const champ = document.getElementById(id);
-    champ.oninput = () => { sur[clef] = champ.value; };
-  };
-  lier('ref', 'reference');
-  lier('cpT', 'codePostalTerrain');
-  lier('mNom', 'nom', saisie.mairie); lier('mComp', 'complement', saisie.mairie);
-  lier('mAdr', 'adresse', saisie.mairie); lier('mCp', 'codePostal', saisie.mairie);
-  lier('mCom', 'commune', saisie.mairie);
-  lier('dest', 'destinataire');
-  document.getElementById('voie').onchange = (ev) => {
-    saisie.accepterVoieElectronique = ev.target.checked;
-  };
-
-  document.getElementById('ajouter').onclick = () => {
-    saisie.parcelles.push(ligneVide()); dessinerParcelles();
-  };
-  document.getElementById('btnUnites').onclick = () => verifierUnites(true);
-
-  brancherDepot();
-  chercherCommuneEnDirect();
-  chercherAdresseEnDirect();
-  document.getElementById('btnPdf').onclick = () => agir('pdf');
-  document.getElementById('btnMail').onclick = () => agir('mail');
+  majEntete(b);
 }
 
 /* ------------------------------------------------- recherche de commune */
 
-function chercherCommuneEnDirect() {
-  const champ = document.getElementById('rechCommune');
-  const liste = document.getElementById('listeCommunes');
-  const etat = document.getElementById('etatCommune');
+function chercherCommuneEnDirect(b) {
+  const champ = document.getElementById(`rech${b.id}`);
+  const liste = document.getElementById(`listeCommunes${b.id}`);
+  const etat = document.getElementById(`etatCommune${b.id}`);
+  if (!champ) return;
   let minuteur = null;
   // Un jeton par frappe : une réponse plus lente à une frappe plus ancienne ne
   // doit pas écraser la liste d'une frappe plus récente.
@@ -393,7 +505,7 @@ function chercherCommuneEnDirect() {
           <div data-i="${i}"><b>${e(c.nom)}</b>
             <span class="dep">${e(c.departement || '')} — ${e(c.code)}</span></div>`).join('')}</div>`;
         liste.querySelectorAll('[data-i]').forEach((el) => {
-          el.onclick = () => choisirCommune(r.communes[+el.dataset.i]);
+          el.onclick = () => choisirCommune(b, r.communes[+el.dataset.i]);
         });
       } catch (err) {
         if (mien === jeton) etat.textContent = `annuaire indisponible — ${err.message}`;
@@ -402,64 +514,94 @@ function chercherCommuneEnDirect() {
   };
 }
 
-async function choisirCommune(c) {
-  saisie.commune = c;
-  document.getElementById('rechCommune').value = c.nom;
-  document.getElementById('listeCommunes').innerHTML = '';
-  document.getElementById('etatCommune').textContent = `${c.nom} — code INSEE ${c.code}`;
+async function choisirCommune(b, c) {
+  b.commune = c;
+  const par = (prefixe) => document.getElementById(`${prefixe}${b.id}`);
+  par('rech').value = c.nom;
+  document.getElementById(`listeCommunes${b.id}`).innerHTML = '';
+  par('etatCommune').textContent = `${c.nom} — code INSEE ${c.code}`;
+  majEntete(b);
+
   // Le code postal suit le choix de la commune, et l'écrase : choisir une
   // commune est un acte délibéré, et laisser le code postal de la précédente
   // ferait partir un pli au bon nom et au mauvais bureau. Une commune à
   // plusieurs codes postaux reçoit le premier — il reste modifiable, et
   // l'adresse choisie plus bas le corrigera d'elle-même.
   if (c.codePostal) {
-    saisie.codePostalTerrain = c.codePostal;
-    document.getElementById('cpT').value = c.codePostal;
+    b.codePostalTerrain = c.codePostal;
+    par('cpT').value = c.codePostal;
   }
 
   // L'adresse vérifiée l'était DANS L'AUTRE COMMUNE. Elle ne l'est plus.
-  if (saisie.adresseVerifiee) {
-    saisie.adresseVerifiee = false;
-    document.getElementById('etatAdresse').textContent =
-      'commune changée : vérifiez à nouveau l’adresse';
+  if (b.adresseVerifiee) {
+    b.adresseVerifiee = false;
+    par('etatAdresse').textContent = 'commune changée : vérifiez à nouveau l’adresse';
   }
-  oublierUnites();
+  oublierUnites(b);
 
-  await proposerMairie(c.code);
+  await proposerMairie(b);
+}
+
+async function proposerMairie(b) {
+  const etat = document.getElementById(`etatMairie${b.id}`);
+  if (!b.commune) return;
+  etat.textContent = 'recherche de la mairie…';
+  try {
+    const r = await api(`/api/mairie?code=${encodeURIComponent(b.commune.code)}`);
+    if (r.etat !== 'trouvee') {
+      etat.textContent = `${r.motif} — saisissez l’adresse à la main.`;
+      return;
+    }
+    // Proposée, jamais imposée : les champs restent modifiables, et rien n'est
+    // écrasé si le notaire a déjà saisi quelque chose.
+    const m = r.mairie;
+    const poser = (prefixe, clef, valeur) => {
+      const champ = document.getElementById(`${prefixe}${b.id}`);
+      if (valeur && champ && !champ.value) { champ.value = valeur; b.mairie[clef] = valeur; }
+    };
+    poser('mNom', 'nom', m.nom);
+    poser('mAdr', 'adresse', m.adresse);
+    poser('mComp', 'complement', m.complement);
+    poser('mCp', 'codePostal', m.codePostal);
+    poser('mCom', 'commune', m.commune);
+    etat.textContent = `Proposée par l’${m.source}${r.autres ? ` — ${r.autres} autre(s) fiche(s) pour cette commune` : ''}.`;
+  } catch (err) {
+    etat.textContent = `annuaire indisponible — ${err.message}. Saisissez l’adresse à la main.`;
+  }
 }
 
 /* ------------------------------------------------- recherche d'adresse */
 
 /**
  * L'adresse du terrain, cherchée dans la Base Adresse Nationale et LIMITÉE À LA
- * COMMUNE retenue plus haut. Sans ce filtre, « 12 rue de la Gare » proposerait
- * les quelques milliers de rues de la Gare de France, et il suffirait d'un clic
+ * COMMUNE du bloc. Sans ce filtre, « 12 rue de la Gare » proposerait les
+ * quelques milliers de rues de la Gare de France, et il suffirait d'un clic
  * distrait pour envoyer à la mairie de Lille une demande portant sur un terrain
  * de Lomme.
  *
  * Rien n'est imposé : le champ reste libre. Un terrain nu sans adresse, un
  * lotissement trop récent pour la BAN, une voie privée — cela existe, et la
- * demande doit pouvoir partir quand même. La différence entre « vérifiée » et
- * « saisie à la main » est simplement dite sous le champ.
+ * demande doit pouvoir partir quand même.
  */
-function chercherAdresseEnDirect() {
-  const champ = document.getElementById('adr');
-  const liste = document.getElementById('listeAdresses');
-  const etat = document.getElementById('etatAdresse');
+function chercherAdresseEnDirect(b) {
+  const champ = document.getElementById(`adr${b.id}`);
+  const liste = document.getElementById(`listeAdresses${b.id}`);
+  const etat = document.getElementById(`etatAdresse${b.id}`);
+  if (!champ) return;
   let minuteur = null;
   let jeton = 0;
 
   champ.oninput = () => {
     clearTimeout(minuteur);
-    saisie.adresse = champ.value;
-    saisie.adresseVerifiee = false;
+    b.adresse = champ.value;
+    b.adresseVerifiee = false;
     const q = champ.value.trim();
     liste.innerHTML = '';
     if (q.length < 3) { etat.textContent = ''; return; }
     etat.textContent = 'recherche…';
     minuteur = setTimeout(async () => {
       const mien = ++jeton;
-      const c = saisie.commune || {};
+      const c = b.commune || {};
       const p = new URLSearchParams({ q });
       if (c.code) p.set('code', c.code);
       if (c.chefLieu) p.set('chefLieu', c.chefLieu);
@@ -481,7 +623,7 @@ function chercherAdresseEnDirect() {
               a.genre === 'locality' ? ' — lieu-dit' : ''}${
               a.genre === 'municipality' ? ' — commune seule' : ''}</span></div>`).join('')}</div>`;
         liste.querySelectorAll('[data-i]').forEach((el) => {
-          el.onclick = () => choisirAdresse(r.adresses[+el.dataset.i]);
+          el.onclick = () => choisirAdresse(b, r.adresses[+el.dataset.i]);
         });
       } catch (err) {
         if (mien === jeton) etat.textContent = `base adresse indisponible — ${err.message}`;
@@ -490,32 +632,133 @@ function chercherAdresseEnDirect() {
   };
 }
 
-function choisirAdresse(a) {
-  saisie.adresse = a.adresse;
-  saisie.adresseVerifiee = true;
-  document.getElementById('adr').value = a.adresse;
-  document.getElementById('listeAdresses').innerHTML = '';
+function choisirAdresse(b, a) {
+  b.adresse = a.adresse;
+  b.adresseVerifiee = true;
+  document.getElementById(`adr${b.id}`).value = a.adresse;
+  document.getElementById(`listeAdresses${b.id}`).innerHTML = '';
   if (a.codePostal) {
-    saisie.codePostalTerrain = a.codePostal;
-    document.getElementById('cpT').value = a.codePostal;
+    b.codePostalTerrain = a.codePostal;
+    document.getElementById(`cpT${b.id}`).value = a.codePostal;
   }
-  document.getElementById('etatAdresse').textContent =
+  document.getElementById(`etatAdresse${b.id}`).textContent =
     `vérifiée — ${[a.codePostal, a.commune, a.quartier].filter(Boolean).join(' ')}`;
 }
 
-/* ------------------------------------------------ dépôt d'un fichier */
+/* --------------------------------------------------- unités foncières */
 
-// Ce que le dernier fichier a rendu. Gardé ici pour que les cases cochées
-// survivent au redessin des lignes de parcelles.
-let importLu = null;
-let importFichier = null;
+/** La saisie dont dépend le comptage : commune et références, rien d'autre. */
+function signatureParcelles(b) {
+  const refs = b.parcelles
+    .filter((p) => String(p.section).trim() && String(p.numero).trim())
+    .map((p) => `${p.prefixe || ''}|${p.section}|${p.numero}`.toUpperCase());
+  return refs.length ? `${b.commune?.code || ''}::${refs.join(',')}` : null;
+}
+
+function oublierUnites(b) {
+  b.signature = null;
+  b.jeton = (b.jeton || 0) + 1;
+  const zone = document.getElementById(`etatUnites${b.id}`);
+  if (zone) zone.innerHTML = '';
+}
+
+/**
+ * Le comptage se relance tout seul, une seconde après la dernière frappe, mais
+ * seulement si les références ont VRAIMENT changé. Chaque vérification coûte
+ * jusqu'à quatre interrogations du cadastre par parcelle : la relancer à chaque
+ * caractère saisi ferait de CERTIF un mauvais voisin sur un service public
+ * gratuit.
+ */
+function programmerUnites(b) {
+  clearTimeout(b.minuteur);
+  const signature = signatureParcelles(b);
+  if (signature === b.signature) return;
+  const zone = document.getElementById(`etatUnites${b.id}`);
+  if (zone) zone.innerHTML = '';
+  b.minuteur = setTimeout(() => verifierUnites(b, false), 1000);
+}
+
+async function verifierUnites(b, demandee) {
+  const zone = document.getElementById(`etatUnites${b.id}`);
+  if (!zone) return;
+  const signature = signatureParcelles(b);
+  const completes = b.parcelles.filter(
+    (p) => String(p.section).trim() && String(p.numero).trim());
+
+  if (!b.commune || !signature) {
+    zone.innerHTML = demandee
+      ? '<div class="avert">Renseignez d’abord la commune et au moins une parcelle complète.</div>'
+      : '';
+    return;
+  }
+  // Une parcelle seule ne pose pas la question : elle est son unité foncière.
+  if (completes.length < 2 && !demandee) { zone.innerHTML = ''; return; }
+
+  b.signature = signature;
+  b.jeton = (b.jeton || 0) + 1;
+  const mien = b.jeton;
+  zone.innerHTML = '<div class="etat">vérification de la contiguïté au cadastre…</div>';
+
+  let r;
+  try {
+    r = await api('/api/unites', {
+      method: 'POST',
+      body: JSON.stringify({
+        commune: { code: b.commune.code, nom: b.commune.nom, chefLieu: b.commune.chefLieu },
+        parcelles: b.parcelles,
+      }),
+    });
+  } catch (err) {
+    if (mien === b.jeton) {
+      b.signature = null;
+      zone.innerHTML = `<div class="avert">Contiguïté non vérifiée — ${e(err.message)}.
+        Assurez-vous vous-même que les parcelles forment une seule unité foncière.</div>`;
+    }
+    return;
+  }
+  if (mien !== b.jeton) return;
+
+  const nonVerifiees = (r.unites || []).filter((u) => !u.contourConnu).flatMap((u) => u.parcelles);
+  const reserve = `<span style="color:var(--gris)">Contiguïté seule : l’identité du propriétaire
+    n’est pas contrôlée (CE 27 juin 2005, Chambon).</span>`;
+  const inconnues = nonVerifiees.length
+    ? `<br><b>Sans contour au cadastre : ${e(nonVerifiees.join(', '))}</b> — rattachement à vérifier.`
+    : '';
+
+  if (r.question) {
+    const groupes = (r.unites || []).filter((u) => u.contourConnu);
+    zone.innerHTML = `<div class="avert"><b>${groupes.length} unités foncières distinctes :
+      ${groupes.length} demandes pour cette commune</b>, dans le même PDF.
+      <ul>${groupes.map((u, i) => `<li><b>unité ${i + 1}</b> — ${e(u.parcelles.join(', '))}</li>`).join('')}</ul>
+      Chacune a sa lettre, ses deux exemplaires et son pli
+      recommandé.${inconnues}<br>${reserve}</div>`;
+    return;
+  }
+
+  const verifiees = (r.unites || []).filter((u) => u.contourConnu);
+  if (!verifiees.length) {
+    zone.innerHTML = `<div class="avert"><b>Aucun contour retrouvé au cadastre</b> —
+      la contiguïté n’a pas pu être vérifiée${r.motif ? ` : ${e(r.motif)}` : ''}.${inconnues}</div>`;
+    return;
+  }
+  zone.innerHTML = `<div class="ok"><b>Une seule unité foncière</b> —
+    ${e(verifiees[0].parcelles.join(', '))} : parcelles contiguës, une seule demande.${inconnues}
+    <br>${reserve}</div>`;
+}
+
+/* ------------------------------------------------ dépôt de fichiers */
+
+// Ce que les derniers fichiers ont rendu : une ligne par parcelle lue, avec sa
+// commune. Gardé ici pour que les cases cochées survivent au redessin.
+let importLu = [];
+let importFichiers = [];
 
 function brancherDepot() {
   const zone = document.getElementById('depot');
   const champ = document.getElementById('fichier');
 
   zone.onclick = () => champ.click();
-  champ.onchange = () => { if (champ.files[0]) lireFichier(champ.files[0]); };
+  champ.onchange = () => { if (champ.files.length) lireFichiers([...champ.files]); };
 
   // Sans preventDefault sur dragover, le navigateur ouvre le PDF à la place —
   // et la saisie en cours est perdue.
@@ -524,8 +767,8 @@ function brancherDepot() {
   zone.ondrop = (ev) => {
     ev.preventDefault();
     zone.classList.remove('survol');
-    const f = ev.dataTransfer?.files?.[0];
-    if (f) lireFichier(f);
+    const f = [...(ev.dataTransfer?.files || [])];
+    if (f.length) lireFichiers(f);
   };
 }
 
@@ -539,53 +782,88 @@ function enBase64(fichier) {
   });
 }
 
-async function lireFichier(fichier) {
+/**
+ * PLUSIEURS FICHIERS D'UN COUP. Un dossier de succession, ce sont souvent trois
+ * relevés de propriété, un par commune : les déposer ensemble et les voir se
+ * ranger en trois blocs vaut mieux que trois allers-retours.
+ */
+async function lireFichiers(fichiers) {
   const sortie = document.getElementById('importResultat');
-  sortie.innerHTML = `<div class="etat">lecture de ${e(fichier.name)}…</div>`;
-  importFichier = fichier;
+  sortie.innerHTML = `<div class="etat">lecture de ${fichiers.length} fichier(s)…</div>`;
+  importFichiers = fichiers;
+  importLu = [];
 
-  let r;
-  try {
-    r = await api('/api/importer', {
-      method: 'POST',
-      body: JSON.stringify({ nom: fichier.name, contenu: await enBase64(fichier) }),
-    });
-  } catch (err) {
-    sortie.innerHTML = `<div class="erreur">${e(err.message)}</div>`;
-    return;
+  const lus = [];
+  const refus = [];
+  for (const fichier of fichiers) {
+    try {
+      const r = await api('/api/importer', {
+        method: 'POST',
+        body: JSON.stringify({ nom: fichier.name, contenu: await enBase64(fichier) }),
+      });
+      lus.push(r);
+      for (const groupe of r.groupes || []) {
+        for (const p of groupe.parcelles) {
+          importLu.push({ ...p, commune: groupe.commune || null, fichier: r.fichier, retenue: true });
+        }
+      }
+    } catch (err) {
+      refus.push(`${fichier.name} — ${err.message}`);
+    }
   }
 
-  importLu = r.parcelles.map((p) => ({ ...p, retenue: true }));
-  montrerLues(r);
-
-  // La commune du relevé n'est qu'une PROPOSITION, et elle ne s'applique que
-  // si aucune n'a été choisie : écraser un choix fait à la main par un code lu
-  // dans un en-tête, c'est changer de mairie sans le dire.
-  if (!saisie.commune && r.commune?.codeInsee) proposerCommune(r.commune.codeInsee);
+  montrerLues(lus, refus);
 }
 
-function montrerLues(r) {
+/** Les parcelles lues, groupées par commune, chacune décochable. */
+function montrerLues(lus, refus) {
   const sortie = document.getElementById('importResultat');
+  const alertes = [
+    ...refus.map((m) => `<div class="erreur">${e(m)}</div>`),
+    ...lus.flatMap((r) => (r.avertissements || []).map((a) => `<div class="avert">${e(a)}</div>`)),
+  ].join('');
+
   if (!importLu.length) {
-    sortie.innerHTML = `<div class="avert"><b>Aucune parcelle reconnue</b> dans
-      ${e(r.fichier)}.<br>${e(r.methode || '')}
+    sortie.innerHTML = `${alertes}<div class="avert"><b>Aucune parcelle reconnue.</b>
       <p style="margin:8px 0 0"><button class="discret" id="journalImport"
         style="border:1px solid rgba(255,255,255,.2)">Voir ce que CERTIF a lu</button></p></div>`;
-    document.getElementById('journalImport').onclick = montrerJournalImport;
+    const bouton = document.getElementById('journalImport');
+    if (bouton) bouton.onclick = montrerJournalImport;
     return;
   }
 
-  sortie.innerHTML = `
-    <div class="etat" style="margin-top:10px">${e(r.fichier)} — ${importLu.length} parcelle(s) lue(s)${
-      r.ignorees ? `, ${r.ignorees} ligne(s) laissée(s) de côté` : ''}.</div>
-    ${(r.avertissements || []).map((a) => `<div class="avert">${e(a)}</div>`).join('')}
-    <div class="lues"><table>
-      <tr><th><input type="checkbox" id="toutes" checked></th><th>Réf.</th><th>Contenance</th><th>Lieudit</th></tr>
-      ${importLu.map((p, i) => `<tr>
+  // Regroupé à l'écran comme il le sera dans la saisie : une intercalaire par
+  // commune, pour qu'on voie d'un coup d'œil combien de blocs vont naître.
+  const clef = (x) => `${x.commune?.codeInsee || ''}|${(x.commune?.nom || '').toUpperCase()}`;
+  const ordre = [];
+  const parCommune = new Map();
+  importLu.forEach((x, i) => {
+    const k = clef(x);
+    if (!parCommune.has(k)) { parCommune.set(k, []); ordre.push(k); }
+    parCommune.get(k).push(i);
+  });
+
+  const lignes = ordre.map((k) => {
+    const rangs = parCommune.get(k);
+    const nom = importLu[rangs[0]].commune?.nom;
+    const entete = `<tr class="commune"><td colspan="4">${
+      nom ? e(nom) : 'commune non lue — à choisir dans le bloc'} — ${rangs.length} parcelle(s)</td></tr>`;
+    return entete + rangs.map((i) => {
+      const p = importLu[i];
+      return `<tr>
         <td><input type="checkbox" data-l="${i}" ${p.retenue ? 'checked' : ''}></td>
         <td>${e([p.prefixe, p.section, p.numero].filter(Boolean).join(' '))}</td>
         <td class="gris">${p.contenance ? `${e(p.contenance)} m²` : '—'}</td>
-        <td class="gris">${e(p.lieudit || '')}</td></tr>`).join('')}
+        <td class="gris">${e(p.lieudit || '')}</td></tr>`;
+    }).join('');
+  }).join('');
+
+  sortie.innerHTML = `${alertes}
+    <div class="etat" style="margin-top:10px">${importLu.length} parcelle(s) lue(s) dans
+      ${ordre.length} commune(s).</div>
+    <div class="lues"><table>
+      <tr><th><input type="checkbox" id="toutes" checked></th><th>Réf.</th><th>Contenance</th><th>Lieudit</th></tr>
+      ${lignes}
     </table></div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <button class="primaire" id="reporter">Reporter dans la saisie</button>
@@ -609,193 +887,130 @@ function montrerLues(r) {
 function majReporter() {
   const bouton = document.getElementById('reporter');
   if (!bouton) return;
-  const n = importLu.filter((p) => p.retenue).length;
-  bouton.textContent = n ? `Reporter ${n} parcelle(s) dans la saisie` : 'Aucune parcelle cochée';
-  bouton.disabled = n === 0;
+  const retenues = importLu.filter((p) => p.retenue);
+  const communes = new Set(retenues.map((p) => (p.commune?.nom || '').toUpperCase()));
+  bouton.textContent = retenues.length
+    ? `Reporter ${retenues.length} parcelle(s) dans ${communes.size} bloc(s)`
+    : 'Aucune parcelle cochée';
+  bouton.disabled = retenues.length === 0;
 }
 
 /**
  * Le report REMPLACE la saisie : c'est le point de bascule, et il doit être
  * franc. Ajouter à la suite laisserait cohabiter des lignes venues de deux
  * relevés différents sans qu'on sache lesquelles.
+ *
+ * Un bloc par commune lue. La commune elle-même est ensuite résolue dans
+ * l'annuaire — c'est elle qui commande la mairie, et donc l'adresse du pli.
  */
-function reporterLues() {
+async function reporterLues() {
   const retenues = importLu.filter((p) => p.retenue);
   if (!retenues.length) return;
-  saisie.parcelles = retenues.map((p) => ({
-    prefixe: p.prefixe || '',
-    section: p.section || '',
-    numero: p.numero || '',
-    contenance: p.contenance || '',
-  }));
-  dessinerParcelles();
-  oublierUnites();
-  programmerUnites();
+
+  const ordre = [];
+  const parCommune = new Map();
+  for (const p of retenues) {
+    const k = `${p.commune?.codeInsee || ''}|${(p.commune?.nom || '').toUpperCase()}`;
+    if (!parCommune.has(k)) { parCommune.set(k, { commune: p.commune, parcelles: [] }); ordre.push(k); }
+    parCommune.get(k).parcelles.push(p);
+  }
+
+  saisie.communes = ordre.map((k) => {
+    const g = parCommune.get(k);
+    const bloc = blocVide();
+    bloc.parcelles = g.parcelles.map((p) => ({
+      prefixe: p.prefixe || '',
+      section: p.section || '',
+      numero: p.numero || '',
+      contenance: p.contenance || '',
+    }));
+    // Replié par défaut au-delà de deux : une saisie de six communes déroulées
+    // ne se lit pas.
+    bloc.ouvert = ordre.length <= 2;
+    bloc.lu = g.commune || null;
+    return bloc;
+  });
+  dessinerBlocs();
+
   document.getElementById('importResultat').insertAdjacentHTML('afterbegin',
-    `<div class="ok">${retenues.length} parcelle(s) reportée(s). Vérification de l’unité
-     foncière en cours…</div>`);
+    `<div class="ok">${retenues.length} parcelle(s) reportée(s) dans
+     ${saisie.communes.length} bloc(s). Résolution des communes…</div>`);
+
+  // Les communes une à une, en série : trois requêtes lancées ensemble sur
+  // l'annuaire pour un gain d'une demi-seconde n'en valent pas le risque.
+  for (const bloc of saisie.communes) {
+    if (bloc.lu) await proposerCommune(bloc, bloc.lu);
+    programmerUnites(bloc);
+  }
 }
 
 /** Les lignes telles que CERTIF les a reconstituées : le seul diagnostic utile. */
 async function montrerJournalImport() {
   const bouton = document.getElementById('journalImport');
-  if (!bouton || !importFichier) return;
+  if (!bouton || !importFichiers.length) return;
   bouton.disabled = true;
   bouton.textContent = 'lecture…';
-  let contenu;
-  try {
-    contenu = await api('/api/importer?journal=1', {
-      method: 'POST',
-      body: JSON.stringify({ nom: importFichier.name, contenu: await enBase64(importFichier) }),
-    });
-  } catch (err) {
-    contenu = { erreur: err.message, ...(err.details || {}) };
+  const morceaux = [];
+  for (const fichier of importFichiers) {
+    let contenu;
+    try {
+      contenu = await api('/api/importer?journal=1', {
+        method: 'POST',
+        body: JSON.stringify({ nom: fichier.name, contenu: await enBase64(fichier) }),
+      });
+    } catch (err) {
+      contenu = { erreur: err.message, ...(err.details || {}) };
+    }
+    const lignes = (contenu.lignes || []).map((l) => l.join(' · ')).join('\n');
+    morceaux.push(`— ${fichier.name} —\n${lignes || JSON.stringify(contenu, null, 1)}`);
   }
-  const lignes = (contenu.lignes || []).map((l) => l.join(' · ')).join('\n');
   bouton.outerHTML = `<pre style="margin:12px 0 0;padding:12px;overflow:auto;max-height:340px;
     background:rgba(0,0,0,.25);border-radius:5px;font-size:11px;white-space:pre-wrap">${
-      e(lignes || JSON.stringify(contenu, null, 1))}</pre>`;
-}
-
-/** La commune lue dans l'en-tête d'un relevé, cherchée dans l'annuaire. */
-async function proposerCommune(code) {
-  try {
-    const r = await api(`/api/communes?q=${encodeURIComponent(code)}`);
-    if (r.communes.length === 1) await choisirCommune(r.communes[0]);
-  } catch { /* l'annuaire est indisponible : la commune se choisira à la main */ }
-}
-
-/* --------------------------------------------------- unités foncières */
-
-let minuteurUnites = null;
-let jetonUnites = 0;
-let derniereSignature = null;
-
-/** La saisie dont dépend le comptage : commune et références, rien d'autre. */
-function signatureParcelles() {
-  const c = saisie.commune || {};
-  const refs = saisie.parcelles
-    .filter((p) => String(p.section).trim() && String(p.numero).trim())
-    .map((p) => `${p.prefixe || ''}|${p.section}|${p.numero}`.toUpperCase());
-  return refs.length ? `${c.code || ''}::${refs.join(',')}` : null;
-}
-
-function oublierUnites() {
-  derniereSignature = null;
-  jetonUnites += 1;
-  const zone = document.getElementById('etatUnites');
-  if (zone) zone.innerHTML = '';
+      e(morceaux.join('\n\n'))}</pre>`;
 }
 
 /**
- * Le comptage se relance tout seul, une seconde après la dernière frappe, mais
- * seulement si les références ont VRAIMENT changé. Chaque vérification coûte
- * jusqu'à quatre interrogations du cadastre par parcelle : la relancer à chaque
- * caractère saisi ferait de CERTIF un mauvais voisin sur un service public
- * gratuit.
+ * La commune lue dans l'en-tête d'un relevé ou dans une colonne, cherchée dans
+ * l'annuaire.
+ *
+ * DEUX CLEFS, DANS CET ORDRE : le code INSEE, puis le nom. Le code ne rend
+ * qu'une commune et ne se trompe pas ; le nom peut en rendre plusieurs — il y a
+ * une dizaine de Saint-André en France, et le relevé ne dit pas lequel.
+ *
+ * ON NE TRANCHE JAMAIS À PLUSIEURS. Quand l'annuaire rend plus d'une commune,
+ * CERTIF se contente de préparer la recherche et d'ouvrir la liste : choisir
+ * pour vous, ce serait décider de la mairie à qui part le recommandé sur la foi
+ * d'un nom lu dans un en-tête.
  */
-function programmerUnites() {
-  clearTimeout(minuteurUnites);
-  const signature = signatureParcelles();
-  if (signature === derniereSignature) return;
-  const zone = document.getElementById('etatUnites');
-  if (zone) zone.innerHTML = '';
-  minuteurUnites = setTimeout(() => verifierUnites(false), 1000);
-}
+async function proposerCommune(b, lu) {
+  const champ = document.getElementById(`rech${b.id}`);
+  const etat = document.getElementById(`etatCommune${b.id}`);
+  if (!champ) return;
 
-async function verifierUnites(demandee) {
-  const zone = document.getElementById('etatUnites');
-  if (!zone) return;
-  const signature = signatureParcelles();
-  const completes = saisie.parcelles.filter(
-    (p) => String(p.section).trim() && String(p.numero).trim());
-
-  if (!saisie.commune || !signature) {
-    zone.innerHTML = demandee
-      ? '<div class="avert">Renseignez d’abord la commune et au moins une parcelle complète.</div>'
-      : '';
-    return;
-  }
-  // Une parcelle seule ne pose pas la question : elle est son unité foncière.
-  if (completes.length < 2 && !demandee) { zone.innerHTML = ''; return; }
-
-  derniereSignature = signature;
-  const mien = ++jetonUnites;
-  zone.innerHTML = '<div class="etat">vérification de la contiguïté au cadastre…</div>';
-
-  let r;
-  try {
-    r = await api('/api/unites', {
-      method: 'POST',
-      body: JSON.stringify({
-        commune: { code: saisie.commune.code, nom: saisie.commune.nom, chefLieu: saisie.commune.chefLieu },
-        parcelles: saisie.parcelles,
-      }),
-    });
-  } catch (err) {
-    if (mien === jetonUnites) {
-      derniereSignature = null;
-      zone.innerHTML = `<div class="avert">Contiguïté non vérifiée — ${e(err.message)}.
-        Assurez-vous vous-même que les parcelles forment une seule unité foncière.</div>`;
+  for (const q of [lu.codeInsee, lu.nom].filter(Boolean)) {
+    let r;
+    try {
+      r = await api(`/api/communes?q=${encodeURIComponent(q)}`);
+    } catch {
+      return; // l'annuaire est indisponible : la commune se choisira à la main
     }
-    return;
-  }
-  if (mien !== jetonUnites) return;
-
-  const nonVerifiees = (r.unites || []).filter((u) => !u.contourConnu).flatMap((u) => u.parcelles);
-  const reserve = `<span style="color:var(--gris)">Contiguïté seule : l’identité du propriétaire
-    n’est pas contrôlée (CE 27 juin 2005, Chambon).</span>`;
-  const inconnues = nonVerifiees.length
-    ? `<br><b>Sans contour au cadastre : ${e(nonVerifiees.join(', '))}</b> — rattachement à vérifier.`
-    : '';
-
-  if (r.question) {
-    const groupes = (r.unites || []).filter((u) => u.contourConnu);
-    zone.innerHTML = `<div class="avert"><b>${groupes.length} unités foncières distinctes :
-      CERTIF produira ${groupes.length} demandes</b>, une par unité, dans le même PDF —
-      références ${groupes.map((u, i) => `<b>/${i + 1}</b>`).join(', ')}.
-      <ul>${groupes.map((u, i) => `<li><b>/${i + 1}</b> — ${e(u.parcelles.join(', '))}</li>`).join('')}</ul>
-      Chacune a sa lettre et ses deux exemplaires, et part dans son propre pli
-      recommandé.${inconnues}<br>${reserve}</div>`;
-    return;
-  }
-
-  const verifiees = (r.unites || []).filter((u) => u.contourConnu);
-  if (!verifiees.length) {
-    zone.innerHTML = `<div class="avert"><b>Aucun contour retrouvé au cadastre</b> —
-      la contiguïté n’a pas pu être vérifiée${r.motif ? ` : ${e(r.motif)}` : ''}.${inconnues}</div>`;
-    return;
-  }
-  zone.innerHTML = `<div class="ok"><b>Une seule unité foncière</b> —
-    ${e(verifiees[0].parcelles.join(', '))} : parcelles contiguës, une seule demande.${inconnues}
-    <br>${reserve}</div>`;
-}
-
-async function proposerMairie(code) {
-  const etat = document.getElementById('etatMairie');
-  etat.textContent = 'recherche de la mairie…';
-  try {
-    const r = await api(`/api/mairie?code=${encodeURIComponent(code)}`);
-    if (r.etat !== 'trouvee') {
-      etat.textContent = `${r.motif} — saisissez l’adresse à la main.`;
+    if (r.communes.length === 1) {
+      await choisirCommune(b, r.communes[0]);
+      etat.textContent += ' — lue dans le fichier';
       return;
     }
-    // Proposée, jamais imposée : les champs restent modifiables, et rien n'est
-    // écrasé si le notaire a déjà saisi quelque chose.
-    const m = r.mairie;
-    const poser = (id, clef, valeur) => {
-      const champ = document.getElementById(id);
-      if (valeur && !champ.value) { champ.value = valeur; saisie.mairie[clef] = valeur; }
-    };
-    poser('mNom', 'nom', m.nom);
-    poser('mAdr', 'adresse', m.adresse);
-    poser('mComp', 'complement', m.complement);
-    poser('mCp', 'codePostal', m.codePostal);
-    poser('mCom', 'commune', m.commune);
-    etat.textContent = `Proposée par l’${m.source}${r.autres ? ` — ${r.autres} autre(s) fiche(s) pour cette commune` : ''}.`;
-  } catch (err) {
-    etat.textContent = `annuaire indisponible — ${err.message}. Saisissez l’adresse à la main.`;
+    if (r.communes.length > 1) {
+      champ.value = lu.nom || q;
+      etat.textContent = `${r.communes.length} communes portent ce nom — choisissez la bonne`;
+      b.ouvert = true;
+      document.getElementById(`bloc${b.id}`).open = true;
+      champ.dispatchEvent(new Event('input'));
+      return;
+    }
   }
+  etat.textContent = `« ${lu.nom || lu.codeInsee || '?'} » introuvable à l’annuaire — à choisir à la main`;
+  b.ouvert = true;
+  document.getElementById(`bloc${b.id}`).open = true;
 }
 
 /* ---------------------------------------------------------------- actions */
@@ -803,13 +1018,15 @@ async function proposerMairie(code) {
 function corpsRequete() {
   return {
     reference: saisie.reference,
-    commune: saisie.commune
-      ? { code: saisie.commune.code, nom: saisie.commune.nom, chefLieu: saisie.commune.chefLieu }
-      : {},
-    adresse: saisie.adresse,
-    codePostalTerrain: saisie.codePostalTerrain,
-    parcelles: saisie.parcelles,
-    mairie: saisie.mairie,
+    communes: saisie.communes.map((b) => ({
+      commune: b.commune
+        ? { code: b.commune.code, nom: b.commune.nom, chefLieu: b.commune.chefLieu }
+        : {},
+      adresse: b.adresse,
+      codePostalTerrain: b.codePostalTerrain,
+      parcelles: b.parcelles,
+      mairie: b.mairie,
+    })),
     accepterVoieElectronique: saisie.accepterVoieElectronique,
     phrase: document.getElementById('phrase').value || undefined,
     destinataire: saisie.destinataire,
@@ -838,7 +1055,7 @@ function listeAvertissements(liste, plan) {
 /**
  * Le cheminement du plan, tel que le serveur l'a vécu : ce qui a été demandé au
  * cadastre combinaison par combinaison, ce que PAINT a répondu, par quelle voie
- * le plan est finalement venu.
+ * le plan est finalement venu. Sur la PREMIÈRE commune de la saisie.
  */
 async function montrerJournalPlan() {
   const zone = document.getElementById('journalPlan');
@@ -847,7 +1064,11 @@ async function montrerJournalPlan() {
   zone.textContent = 'interrogation…';
   let contenu;
   try {
-    contenu = await api('/api/plan?journal=1', { method: 'POST', body: JSON.stringify(corpsRequete()) });
+    const corps = corpsRequete();
+    contenu = await api('/api/plan?journal=1', {
+      method: 'POST',
+      body: JSON.stringify({ ...corps, ...(corps.communes?.[0] || {}) }),
+    });
   } catch (err) {
     contenu = { erreur: err.message, ...(err.details || {}) };
   }
@@ -907,7 +1128,7 @@ async function genererPdf() {
 
   const url = URL.createObjectURL(await r.blob());
   const a = document.createElement('a');
-  a.href = url; a.download = cr.fichier || 'certificat-urbanisme.pdf';
+  a.href = url; a.download = cr.fichier || 'certificats-urbanisme.pdf';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 
@@ -917,9 +1138,9 @@ async function genererPdf() {
 /**
  * Ce qui vient d'être produit, dit en clair.
  *
- * QUAND IL Y A PLUSIEURS DEMANDES, C'EST LA PREMIÈRE CHOSE À LIRE : combien, et
- * pourquoi. Un PDF de vingt pages qui en contenait dix la semaine précédente
- * doit s'expliquer de lui-même, sinon il se relit page à page pour comprendre.
+ * QUAND IL Y A PLUSIEURS DEMANDES, C'EST LA PREMIÈRE CHOSE À LIRE : combien,
+ * pourquoi, et à quelle mairie chacune part. Un PDF de quarante pages qui en
+ * contenait dix la semaine précédente doit s'expliquer de lui-même.
  */
 function resume(cr) {
   const blocs = cr.pagination?.dossiers || [];
@@ -931,12 +1152,16 @@ function resume(cr) {
   };
 
   if (blocs.length > 1) {
-    return `<div class="ok"><b>${blocs.length} demandes produites</b> — les parcelles forment
-      ${blocs.length} unités foncières distinctes, et un certificat d’urbanisme ne porte que sur
-      une unité.
-      <ul>${blocs.map((b, i) => `<li><b>${e(b.reference || '')}</b> — ${e((b.parcelles || []).join(', '))} :
-        lettre page ${b.de}, exemplaires pages ${b.exemplaires[0].de} à ${b.exemplaires[0].a}
-        et ${b.exemplaires[1].de} à ${b.exemplaires[1].a}${planDe(i)}</li>`).join('')}</ul>
+    const communes = new Set((cr.demandes || []).map((d) => d.commune).filter(Boolean));
+    return `<div class="ok"><b>${blocs.length} demandes produites</b>${
+      communes.size > 1 ? ` dans ${communes.size} communes` : ''} — un certificat d’urbanisme
+      ne porte que sur une unité foncière, dans une commune.
+      <ul>${blocs.map((b, i) => `<li><b>${e(b.reference || '')}</b>${
+        cr.demandes?.[i]?.commune ? ` — ${e(cr.demandes[i].commune)}` : ''} —
+        ${e((b.parcelles || []).join(', '))} : lettre page ${b.de}, exemplaires pages
+        ${b.exemplaires[0].de} à ${b.exemplaires[0].a} et ${b.exemplaires[1].de} à
+        ${b.exemplaires[1].a}${planDe(i)}${cr.demandes?.[i]?.mairie
+        ? `<br><span style="color:var(--gris)">→ ${e(cr.demandes[i].mairie)}</span>` : ''}</li>`).join('')}</ul>
       <b>${e(cr.fichier)}</b> — ${cr.pagination.total} pages, ${cr.pagination.feuilles} feuilles
       en recto verso. Chaque demande part dans SON pli recommandé.</div>`;
   }
@@ -966,7 +1191,7 @@ async function preparerCourriel() {
     return afficher(`${listeAvertissements(r.avertissements, r.plan)}
       <div class="avert"><b>Brouillon téléchargé en .eml</b> — le dépôt direct dans Outlook n’a pas
       abouti : ${e(r.motif || 'motif inconnu')}. Ouvrez le fichier, il s’ouvrira dans Outlook avec
-      la pièce jointe.</div>`);
+      la pièce jointe.</div>${resume(r)}`);
   }
 
   afficher(`${listeAvertissements(r.avertissements, r.plan)}
