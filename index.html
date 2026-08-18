@@ -320,6 +320,7 @@ function brancher() {
     // pour saisir, pas pour relire ce qui précède.
     saisie.communes.forEach((b) => { b.ouvert = false; });
     saisie.communes.push(blocVide());
+    oublierMessage();
     dessinerBlocs();
   };
   brancherDepot();
@@ -328,6 +329,17 @@ function brancher() {
 }
 
 /* --------------------------------------------------- les blocs de communes */
+
+/**
+ * Un message affiché — refus, compte rendu — porte sur une saisie qui n'existe
+ * plus dès qu'on ajoute une commune ou qu'on reporte un fichier. Le laisser en
+ * tête de page, c'est afficher « demande incomplète » au-dessus d'une saisie
+ * devenue complète : on ne sait plus si l'outil parle du passé ou du présent.
+ */
+function oublierMessage() {
+  const zone = document.getElementById('msg');
+  if (zone) zone.innerHTML = '';
+}
 
 function dessinerBlocs() {
   const hote = document.getElementById('blocs');
@@ -416,6 +428,7 @@ function brancherBloc(b) {
   document.querySelector(`[data-suppr="${b.id}"]`).onclick = () => {
     saisie.communes = saisie.communes.filter((x) => x !== b);
     if (!saisie.communes.length) saisie.communes.push(blocVide());
+    oublierMessage();
     dessinerBlocs();
   };
 
@@ -530,6 +543,14 @@ async function choisirCommune(b, c) {
   if (c.codePostal) {
     b.codePostalTerrain = c.codePostal;
     par('cpT').value = c.codePostal;
+  }
+  // PLUSIEURS CODES POSTAUX : on en pose un, et on dit qu'il y en a d'autres.
+  // Villeneuve-d'Ascq en compte quatre, dont des CEDEX qui n'ont rien à faire
+  // sur l'adresse d'un terrain. Choisir l'adresse dans la liste plus bas le
+  // corrige d'office.
+  if ((c.codesPostaux || []).length > 1) {
+    par('etatCommune').textContent +=
+      ` — ${c.codesPostaux.length} codes postaux (${c.codesPostaux.join(', ')}), vérifiez`;
   }
 
   // L'adresse vérifiée l'était DANS L'AUTRE COMMUNE. Elle ne l'est plus.
@@ -946,6 +967,7 @@ async function reporterLues() {
     bloc.lu = g.commune || null;
     return bloc;
   });
+  oublierMessage();
   dessinerBlocs();
 
   document.getElementById('importResultat').insertAdjacentHTML('afterbegin',
