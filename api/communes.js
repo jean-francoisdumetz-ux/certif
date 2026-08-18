@@ -33,7 +33,12 @@ const forme = (c) => ({
   // parcelles de Lomme sous Lille — 59350 — avec le préfixe 355 ; sans ce
   // code, le plan de situation ne les retrouve pas.
   chefLieu: c.chefLieu || null,
+  // UNE COMMUNE PEUT AVOIR PLUSIEURS CODES POSTAUX, et le premier de la liste
+  // n'est pas forcément le bon : Villeneuve-d'Ascq en compte quatre, dont des
+  // CEDEX. On rend le premier ET la liste entière — à l'écran de dire qu'il y
+  // en a d'autres plutôt que de laisser partir un imprimé au mauvais bureau.
   codePostal: Array.isArray(c.codesPostaux) ? c.codesPostaux[0] : null,
+  codesPostaux: Array.isArray(c.codesPostaux) ? c.codesPostaux : [],
   departement: [
     c.departement ? `${c.departement.nom} (${c.departement.code})` : null,
     c.type === 'commune-associee' ? 'commune associée' : null,
