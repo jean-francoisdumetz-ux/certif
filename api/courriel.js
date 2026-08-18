@@ -44,6 +44,7 @@ export default protege(async (req, res, utilisateur, jetonDelegue) => {
       fichier: r.fichier,
       pagination: r.pagination,
       signature: r.signature,
+      plan: r.plan,
       avertissements: r.avertissements,
       destinataires,
       // Le repli .eml n'est pas un échec, mais il ne doit pas passer pour un

@@ -402,13 +402,47 @@ function corpsRequete() {
 
 function afficher(html) {
   document.getElementById('msg').innerHTML = html;
+  brancherJournal();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function listeAvertissements(liste) {
+function listeAvertissements(liste, plan) {
   if (!liste || !liste.length) return '';
+  // Quand le plan manque, le diagnostic doit être à un clic. Sans ce bouton,
+  // « colle-moi le journal » suppose de savoir poster une requête à la main —
+  // ce qui n'est pas le métier du notaire.
+  const bouton = plan
+    ? ''
+    : `<p style="margin:10px 0 0"><button class="discret" id="journalPlan"
+         style="border:1px solid rgba(255,255,255,.2)">Pourquoi le plan manque</button></p>`;
   return `<div class="avert"><b>À vérifier avant l’envoi</b><ul>${
-    liste.map((a) => `<li>${e(a)}</li>`).join('')}</ul></div>`;
+    liste.map((a) => `<li>${e(a)}</li>`).join('')}</ul>${bouton}</div>`;
+}
+
+/**
+ * Le cheminement du plan, tel que le serveur l'a vécu : ce qui a été demandé au
+ * cadastre combinaison par combinaison, ce que PAINT a répondu, par quelle voie
+ * le plan est finalement venu.
+ */
+async function montrerJournalPlan() {
+  const zone = document.getElementById('journalPlan');
+  if (!zone) return;
+  zone.disabled = true;
+  zone.textContent = 'interrogation…';
+  let contenu;
+  try {
+    contenu = await api('/api/plan?journal=1', { method: 'POST', body: JSON.stringify(corpsRequete()) });
+  } catch (err) {
+    contenu = { erreur: err.message, ...(err.details || {}) };
+  }
+  zone.parentElement.outerHTML = `<pre style="margin:12px 0 0;padding:12px;overflow:auto;
+    max-height:340px;background:rgba(0,0,0,.25);border-radius:5px;font-size:11.5px;
+    white-space:pre-wrap">${e(JSON.stringify(contenu, null, 1))}</pre>`;
+}
+
+function brancherJournal() {
+  const bouton = document.getElementById('journalPlan');
+  if (bouton) bouton.onclick = montrerJournalPlan;
 }
 
 function afficherRefus(err) {
@@ -462,11 +496,17 @@ async function genererPdf() {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 
   const ex = cr.pagination?.exemplaires || [];
-  afficher(`${listeAvertissements(cr.avertissements)}
+  const plan = cr.plan
+    ? ` Plan de situation ${cr.plan.voie === 'paint'
+        ? 'extrait cadastral officiel (PAINT), parcelle non colorée'
+        : 'sur fond IGN, parcelle colorée'} au 1/${cr.plan.echelle}.`
+    : '';
+  afficher(`${listeAvertissements(cr.avertissements, cr.plan)}
     <div class="ok"><b>${e(cr.fichier)}</b> — ${cr.pagination?.total} pages :
     la lettre en page 1, puis deux exemplaires identiques
     ${ex.length === 2 ? `(pages ${ex[0].de} à ${ex[0].a} et ${ex[1].de} à ${ex[1].a})` : ''}.
-    ${cr.annexe ? `Annexe de ${cr.annexe.pages} page(s) pour ${cr.annexe.parcelles} parcelles.` : ''}</div>`);
+    ${cr.annexe ? `Annexe de ${cr.annexe.pages} page(s) pour ${cr.annexe.parcelles} parcelles.` : ''}
+    ${plan}</div>`);
 }
 
 async function preparerCourriel() {
@@ -480,13 +520,13 @@ async function preparerCourriel() {
     a.href = url; a.download = r.nomEml || 'brouillon.eml';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
-    return afficher(`${listeAvertissements(r.avertissements)}
+    return afficher(`${listeAvertissements(r.avertissements, r.plan)}
       <div class="avert"><b>Brouillon téléchargé en .eml</b> — le dépôt direct dans Outlook n’a pas
       abouti : ${e(r.motif || 'motif inconnu')}. Ouvrez le fichier, il s’ouvrira dans Outlook avec
       la pièce jointe.</div>`);
   }
 
-  afficher(`${listeAvertissements(r.avertissements)}
+  afficher(`${listeAvertissements(r.avertissements, r.plan)}
     <div class="ok"><b>Brouillon déposé dans votre boîte</b>${
       r.destinataires?.length ? ` — pour ${e(r.destinataires.join(', '))}` : ' — sans destinataire, à compléter'}.
     ${r.webLink ? `<br><a href="${e(r.webLink)}" target="_blank" rel="noopener">L’ouvrir dans Outlook</a>` : ''}

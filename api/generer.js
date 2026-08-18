@@ -25,6 +25,7 @@ export default protege(async (req, res) => {
       pagination: r.pagination,
       signature: r.signature,
       annexe: r.annexe,
+      plan: r.plan,
       avertissements: r.avertissements,
     }), 'utf8').toString('base64'));
 

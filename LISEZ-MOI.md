@@ -22,28 +22,36 @@ l'enveloppe.
 ## Le plan de situation
 
 Seule pièce exigée à l'appui de la demande (R*410-1). Il est joint à chaque
-exemplaire, après le Cerfa, et vient de **deux sources, dans cet ordre** :
+exemplaire, après le Cerfa, et vient de **deux sources**. `CERTIF_PLAN_VOIE`
+règle l'ordre — `carte` par défaut, `paint`, ou `paint-seul`.
 
-1. **PAINT** — `GET paint-blue.vercel.app/api/extrait`, qui pilote le Service de
-   Consultation du Plan Cadastral et rend l'**extrait officiel** de la DGFiP.
-   C'est la pièce que les services d'urbanisme lisent. On la demande toujours
-   en premier. Adresse réglable par `CERTIF_PAINT`.
-2. **Une carte fabriquée par CERTIF** — contours du PCI Express via l'API Carto,
-   fond PLAN IGN v2 de la Géoplateforme. Elle ne sert que si PAINT n'a pas
-   répondu, et le repli **se dit** : il remonte en avertissement à l'écran.
+1. **La carte fabriquée par CERTIF** — fond PLAN IGN v2 de la Géoplateforme,
+   contour de la parcelle en carmin, échelle graphique, flèche du nord. Elle est
+   **déterministe** : CERTIF compose lui-même la carte, il sait donc à quel
+   point du papier correspond chaque coordonnée, et le contour tombe juste par
+   construction. C'est la seule des deux qui **colore la parcelle**.
+2. **PAINT** — `GET paint-blue.vercel.app/api/extrait`, l'extrait de plan
+   cadastral officiel de la DGFiP. Meilleure pièce sur le fond, mais **sa
+   parcelle n'est pas colorée** et elle ne peut pas l'être depuis une fonction
+   serverless : la colorisation de PAINT vit dans son navigateur et repose sur
+   un géoréférencement par OCR des étiquettes de coordonnées en marge, que son
+   propre code décrit comme « une fermeture insoudable ».
 
-Deux pièges hérités, notés dans le code :
+Trois choses héritées, notées dans le code :
 
-- **Le repli d'échelle du SCPC est muet** — « une demande à 1/10000 revient à
-  1/1000 sans un mot », écrit PAINT lui-même. CERTIF ne demande donc que des
-  échelles usuelles (`CERTIF_PLAN_ECHELLES`, défaut 2000 puis 5000 — 1/1000 est écarté, une A4 n'y couvre que 195 × 211 m) et ne
-  rapporte jamais que l'échelle *demandée*, pas celle servie.
+- **Le repli d'échelle du SCPC est muet, et REDPAR l'a mesuré** : une demande à
+  1/10000 est servie à 1/1000, sans un mot. Les échelles honorées sont 1000,
+  1250, 1500, 2000, 2500, 4000 et 5000 ; CERTIF n'en retient que le haut
+  (`CERTIF_PLAN_ECHELLES`, défaut 2000 à 5000).
 - **Le préfixe**, encore. Le PCI range les parcelles de Lomme sous Lille avec le
   préfixe 355 ; interroger avec 59355 ne rend rien. CERTIF essaie les
   combinaisons dans un ordre raisonné et dit laquelle a répondu.
+- **Aucune des deux voies n'est silencieuse** : celle qui a servi remonte à
+  l'écran, et l'avertissement dit quand la parcelle n'est pas colorée.
 
 Diagnostic : `POST /api/plan?journal=1` rend tout le cheminement.
-`?sansPaint=1` force la carte de secours pour l'éprouver seule.
+`?sansPaint=1` force la carte, et le bouton « Pourquoi le plan manque » de
+l'écran fait la même chose en un clic.
 
 ## Déploiement
 
