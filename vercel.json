@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/generer.js": { "maxDuration": 30 },
+    "api/courriel.js": { "maxDuration": 30 },
+    "api/communes.js": { "maxDuration": 15 },
+    "api/mairie.js": { "maxDuration": 15 },
+    "api/sante.js": { "maxDuration": 10 }
+  },
+  "regions": ["fra1"]
+}

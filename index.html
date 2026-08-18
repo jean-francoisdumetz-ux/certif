@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CERTIF — demande de certificat d'urbanisme</title>
+<style>
+:root{
+  --nuit:#0F2238; --nuit2:#16304d; --ocre:#E3CC7A; --canard:#33838B;
+  --orange:#FF982D; --carmin:#A01040; --gris:#8798ab; --texte:#e8edf3;
+  --ligne:rgba(227,204,122,.18);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--nuit);color:var(--texte);line-height:1.5;
+  font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:36px 24px 90px}
+header{border-bottom:2px solid var(--ocre);padding-bottom:16px;margin-bottom:26px}
+.eyebrow{color:var(--ocre);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;margin:0 0 8px}
+h1{margin:0 0 6px;font-size:26px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--gris);font-size:14px;margin:0}
+h2{font-size:15px;font-weight:600;color:var(--ocre);margin:30px 0 4px;letter-spacing:.01em}
+h2 + .aide{color:var(--gris);font-size:13px;margin:0 0 12px}
+.centre{text-align:center;padding:70px 20px}
+label{display:block;font-size:12px;color:var(--gris);margin:0 0 4px}
+input,select{width:100%;padding:9px 11px;border-radius:5px;border:1px solid rgba(255,255,255,.14);
+  background:var(--nuit2);color:var(--texte);font:inherit;font-size:14px}
+input:focus,select:focus{outline:none;border-color:var(--ocre)}
+input[readonly]{opacity:.7}
+.rang{display:grid;gap:12px;margin-bottom:12px}
+.r2{grid-template-columns:1fr 1fr}
+.r3{grid-template-columns:1fr 1fr 1fr}
+.parcelle{display:grid;grid-template-columns:80px 80px 1fr 1fr 36px;gap:10px;align-items:end;margin-bottom:8px}
+button{font:inherit;font-size:14px;padding:9px 16px;border-radius:5px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.18);background:transparent;color:var(--texte)}
+button:hover{border-color:var(--ocre)}
+button:disabled{opacity:.4;cursor:default}
+.primaire{background:var(--ocre);color:var(--nuit);border-color:var(--ocre);font-weight:600}
+.discret{border:none;color:var(--gris);padding:6px 8px}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:26px;
+  border-top:1px solid var(--ligne);padding-top:22px}
+.suggestions{border:1px solid var(--ligne);border-radius:5px;margin-top:6px;overflow:hidden}
+.suggestions div{padding:8px 11px;font-size:13.5px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}
+.suggestions div:last-child{border-bottom:none}
+.suggestions div:hover{background:var(--nuit2)}
+.suggestions .dep{color:var(--gris);font-size:12px}
+.etat{font-size:12.5px;color:var(--gris);margin-top:6px;min-height:16px}
+.avert{background:rgba(255,152,45,.10);border:1px solid rgba(255,152,45,.35);border-left:3px solid var(--orange);
+  border-radius:5px;padding:12px 15px;margin:14px 0;font-size:13.5px}
+.erreur{background:rgba(160,16,64,.14);border:1px solid rgba(160,16,64,.5);border-left:3px solid var(--carmin);
+  border-radius:5px;padding:12px 15px;margin:14px 0;font-size:13.5px}
+.ok{background:rgba(51,131,139,.14);border:1px solid rgba(51,131,139,.45);border-left:3px solid var(--canard);
+  border-radius:5px;padding:12px 15px;margin:14px 0;font-size:13.5px}
+.avert ul,.ok ul,.erreur ul{margin:8px 0 0;padding-left:18px}
+.coche{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--texte)}
+.coche input{width:auto;margin-top:3px}
+.coche span{color:var(--gris);font-size:12.5px;display:block}
+a{color:var(--ocre)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="centre">Chargement…</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script>
+// ---------------------------------------------------------------- configuration
+//
+// CERTIF réutilise L'INSCRIPTION D'APPLICATION DE MATRICE plutôt que d'en créer
+// une seconde. Il suffit d'ajouter l'adresse de CERTIF aux URI de redirection
+// SPA de l'inscription existante, dans Entra. Une deuxième inscription voudrait
+// dire un deuxième secret à faire tourner, une deuxième expiration à surveiller,
+// et deux consentements administrateur à obtenir au lieu d'un.
+//
+// Côté Vercel, le projet CERTIF reprend les mêmes AZURE_TENANT_ID et
+// AZURE_CLIENT_ID : c'est ce que le verrou serveur compare à l'audience du jeton.
+const CONFIG = {
+  TENANT_ID: 'c4418640-34ad-4f51-ae6a-8550db7812cb', // ETUDE FIDAL NOTAIRES
+  CLIENT_ID: '195c7db4-b027-4942-82ff-3a2ba796400d', // inscription « MATRICE »
+};
+
+const app = document.getElementById('app');
+const e = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let pca = null, compte = null;
+let mode = 'entra', recette = { passe: null, initiales: null };
+
+// L'état de la saisie vit ici, et nulle part ailleurs. CERTIF n'a pas de base :
+// une demande se saisit, se produit, et s'en va. Rien n'est conservé — ce qui
+// évite d'avoir à répondre un jour de ce qu'on garde.
+const saisie = {
+  reference: '',
+  commune: null,          // { code, nom, codePostal, departement }
+  adresse: '', codePostalTerrain: '', lieuDit: '',
+  parcelles: [ligneVide()],
+  mairie: { nom: '', adresse: '', complement: '', codePostal: '', commune: '' },
+  accepterVoieElectronique: true,
+  destinataire: '',
+};
+
+function ligneVide() { return { prefixe: '', section: '', numero: '', contenance: '' }; }
+
+/* ------------------------------------------------------------- démarrage */
+
+(async function () {
+  if (CONFIG.TENANT_ID === 'A_RENSEIGNER' || CONFIG.CLIENT_ID === 'A_RENSEIGNER') {
+    mode = 'recette';
+    const gardes = sessionStorage.getItem('certif-recette');
+    if (gardes) { recette = JSON.parse(gardes); return dessiner(); }
+    return ecranRecette();
+  }
+  pca = new window.msal.PublicClientApplication({
+    auth: {
+      clientId: CONFIG.CLIENT_ID,
+      authority: `https://login.microsoftonline.com/${CONFIG.TENANT_ID}`,
+      redirectUri: location.origin,
+    },
+    cache: { cacheLocation: 'sessionStorage' },
+  });
+  await pca.initialize();
+  const comptes = pca.getAllAccounts();
+  if (comptes.length) { compte = comptes[0]; dessiner(); } else ecranConnexion();
+}());
+
+function ecranConnexion() {
+  app.innerHTML = `<div class="centre"><h1>CERTIF</h1>
+    <p class="sub">Demandes de certificat d’urbanisme d’information</p>
+    <p style="margin-top:26px"><button class="primaire" id="cx">Se connecter</button></p></div>`;
+  document.getElementById('cx').onclick = async () => {
+    try {
+      const r = await pca.loginPopup({ scopes: [`api://${CONFIG.CLIENT_ID}/access_as_user`] });
+      compte = r.account; dessiner();
+    } catch (err) { app.innerHTML = `<div class="centre"><div class="erreur">${e(err.message)}</div></div>`; }
+  };
+}
+
+function ecranRecette() {
+  app.innerHTML = `<div class="centre"><h1>CERTIF</h1>
+    <p class="sub">Mode recette — l’inscription Entra n’est pas encore renseignée.</p>
+    <div style="max-width:320px;margin:26px auto;text-align:left">
+      <div class="rang"><div><label>Mot de passe</label><input id="mp" type="password"></div></div>
+      <div class="rang"><div><label>Vos initiales</label><input id="ini" maxlength="4"></div></div>
+      <button class="primaire" id="ok">Entrer</button>
+      <div class="etat" id="err"></div>
+    </div></div>`;
+  document.getElementById('ok').onclick = () => {
+    recette = {
+      passe: document.getElementById('mp').value,
+      initiales: document.getElementById('ini').value.toUpperCase(),
+    };
+    sessionStorage.setItem('certif-recette', JSON.stringify(recette));
+    dessiner();
+  };
+}
+
+async function entetes() {
+  if (mode === 'recette') {
+    return { 'x-certif-passe': recette.passe, 'x-certif-auteur': recette.initiales };
+  }
+  const p = { scopes: [`api://${CONFIG.CLIENT_ID}/access_as_user`], account: compte };
+  let jeton;
+  try { jeton = (await pca.acquireTokenSilent(p)).accessToken; }
+  catch { jeton = (await pca.acquireTokenPopup(p)).accessToken; }
+  return { Authorization: `Bearer ${jeton}` };
+}
+
+async function api(chemin, options = {}) {
+  const r = await fetch(chemin, {
+    ...options,
+    headers: { ...(await entetes()), 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+  const corps = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (mode === 'recette' && r.status === 401) {
+      sessionStorage.removeItem('certif-recette');
+      ecranRecette();
+      document.getElementById('err').textContent = corps.erreur || 'Accès refusé.';
+    }
+    const err = new Error(corps.erreur || `HTTP ${r.status}`);
+    err.details = corps;
+    throw err;
+  }
+  return corps;
+}
+
+/* ----------------------------------------------------------------- écran */
+
+function dessiner(message = '') {
+  app.innerHTML = `
+<header>
+  <p class="eyebrow">CERTIF · FIDAL Notaires</p>
+  <h1>Demande de certificat d’urbanisme d’information</h1>
+  <p class="sub">Cerfa n° 13410*13 — deux exemplaires, une lettre, un seul PDF à imprimer.</p>
+</header>
+
+<div id="msg">${message}</div>
+
+<h2>Dossier</h2>
+<p class="aide">La référence figure au pied de chaque page du formulaire et dans le suivi de dossier.</p>
+<div class="rang"><div><input id="ref" placeholder="2026-0117" value="${e(saisie.reference)}"></div></div>
+
+<h2>Commune</h2>
+<p class="aide">Tapez le nom, puis choisissez : les communes associées et déléguées — Lomme, rattachée à
+Lille — figurent dans la liste, et leurs parcelles ne se désignent pas sous le nom du chef-lieu.</p>
+<div class="rang"><div>
+  <input id="rechCommune" placeholder="Lomme, Saint-André…" autocomplete="off"
+    value="${e(saisie.commune ? saisie.commune.nom : '')}">
+  <div class="etat" id="etatCommune">${saisie.commune
+    ? `${e(saisie.commune.nom)} — code INSEE ${e(saisie.commune.code)}` : ''}</div>
+  <div id="listeCommunes"></div>
+</div></div>
+
+<h2>Terrain</h2>
+<div class="rang r3">
+  <div><label>Adresse</label><input id="adr" value="${e(saisie.adresse)}" placeholder="14 rue du Petit Belgique"></div>
+  <div><label>Lieu-dit</label><input id="ld" value="${e(saisie.lieuDit)}"></div>
+  <div><label>Code postal</label><input id="cpT" value="${e(saisie.codePostalTerrain)}" maxlength="5"></div>
+</div>
+
+<h2>Parcelles</h2>
+<p class="aide">Au-delà de trois, elles passent toutes sur une annexe et le cadre 4.2 du formulaire y renvoie.
+Le préfixe n’est à renseigner que pour une commune associée ou déléguée.</p>
+<div id="parcelles"></div>
+<button class="discret" id="ajouter">+ ajouter une parcelle</button>
+
+<h2>Mairie destinataire</h2>
+<p class="aide">Proposée par l’annuaire de l’administration, modifiable. C’est cette adresse qui figure sur
+le recommandé.</p>
+<div class="rang r2">
+  <div><label>Nom</label><input id="mNom" value="${e(saisie.mairie.nom)}"></div>
+  <div><label>Complément</label><input id="mComp" value="${e(saisie.mairie.complement)}"></div>
+</div>
+<div class="rang r3">
+  <div><label>Adresse</label><input id="mAdr" value="${e(saisie.mairie.adresse)}"></div>
+  <div><label>Code postal</label><input id="mCp" value="${e(saisie.mairie.codePostal)}" maxlength="5"></div>
+  <div><label>Commune</label><input id="mCom" value="${e(saisie.mairie.commune)}"></div>
+</div>
+<div class="etat" id="etatMairie"></div>
+
+<h2>Signature et options</h2>
+<div class="rang r2">
+  <div><label>Phrase de signature</label><input id="phrase" type="password" autocomplete="off"
+    placeholder="laisser vide pour un tirage non signé"></div>
+  <div><label>Courriel de l’assistante</label><input id="dest" value="${e(saisie.destinataire)}"
+    placeholder="prenom.nom@fidal.notaires.fr"></div>
+</div>
+<label class="coche"><input type="checkbox" id="voie" ${saisie.accepterVoieElectronique ? 'checked' : ''}>
+  <span style="color:var(--texte);font-size:13.5px">Accepter les réponses par voie électronique
+  <span>Cadre 3 du formulaire. Le certificat revient par courriel, recommandé électronique compris,
+  sans les jours d’acheminement d’un pli.</span></span></label>
+
+<div class="actions">
+  <button class="primaire" id="btnPdf">Générer le PDF</button>
+  <button id="btnMail">Préparer le courriel</button>
+  <span class="etat" id="etatAction"></span>
+</div>`;
+
+  dessinerParcelles();
+  brancher();
+}
+
+function dessinerParcelles() {
+  const hote = document.getElementById('parcelles');
+  hote.innerHTML = saisie.parcelles.map((p, i) => `
+    <div class="parcelle">
+      <div>${i === 0 ? '<label>Préfixe</label>' : ''}<input data-p="${i}" data-c="prefixe" value="${e(p.prefixe)}" maxlength="3"></div>
+      <div>${i === 0 ? '<label>Section</label>' : ''}<input data-p="${i}" data-c="section" value="${e(p.section)}" maxlength="2"></div>
+      <div>${i === 0 ? '<label>Numéro</label>' : ''}<input data-p="${i}" data-c="numero" value="${e(p.numero)}" maxlength="4"></div>
+      <div>${i === 0 ? '<label>Contenance (m²)</label>' : ''}<input data-p="${i}" data-c="contenance" value="${e(p.contenance)}" inputmode="numeric"></div>
+      <div><button class="discret" data-suppr="${i}" title="retirer">×</button></div>
+    </div>`).join('');
+
+  hote.querySelectorAll('input').forEach((champ) => {
+    champ.oninput = () => { saisie.parcelles[+champ.dataset.p][champ.dataset.c] = champ.value; };
+  });
+  hote.querySelectorAll('[data-suppr]').forEach((b) => {
+    b.onclick = () => {
+      saisie.parcelles.splice(+b.dataset.suppr, 1);
+      if (!saisie.parcelles.length) saisie.parcelles.push(ligneVide());
+      dessinerParcelles();
+    };
+  });
+}
+
+function brancher() {
+  const lier = (id, clef, sur = saisie) => {
+    const champ = document.getElementById(id);
+    champ.oninput = () => { sur[clef] = champ.value; };
+  };
+  lier('ref', 'reference');
+  lier('adr', 'adresse'); lier('ld', 'lieuDit'); lier('cpT', 'codePostalTerrain');
+  lier('mNom', 'nom', saisie.mairie); lier('mComp', 'complement', saisie.mairie);
+  lier('mAdr', 'adresse', saisie.mairie); lier('mCp', 'codePostal', saisie.mairie);
+  lier('mCom', 'commune', saisie.mairie);
+  lier('dest', 'destinataire');
+  document.getElementById('voie').onchange = (ev) => {
+    saisie.accepterVoieElectronique = ev.target.checked;
+  };
+
+  document.getElementById('ajouter').onclick = () => {
+    saisie.parcelles.push(ligneVide()); dessinerParcelles();
+  };
+
+  chercherCommuneEnDirect();
+  document.getElementById('btnPdf').onclick = () => agir('pdf');
+  document.getElementById('btnMail').onclick = () => agir('mail');
+}
+
+/* ------------------------------------------------- recherche de commune */
+
+function chercherCommuneEnDirect() {
+  const champ = document.getElementById('rechCommune');
+  const liste = document.getElementById('listeCommunes');
+  const etat = document.getElementById('etatCommune');
+  let minuteur = null;
+  // Un jeton par frappe : une réponse plus lente à une frappe plus ancienne ne
+  // doit pas écraser la liste d'une frappe plus récente.
+  let jeton = 0;
+
+  champ.oninput = () => {
+    clearTimeout(minuteur);
+    const q = champ.value.trim();
+    liste.innerHTML = '';
+    if (q.length < 2) { etat.textContent = ''; return; }
+    etat.textContent = 'recherche…';
+    minuteur = setTimeout(async () => {
+      const mien = ++jeton;
+      try {
+        const r = await api(`/api/communes?q=${encodeURIComponent(q)}`);
+        if (mien !== jeton) return;
+        etat.textContent = r.communes.length ? '' : 'aucune commune de ce nom';
+        liste.innerHTML = `<div class="suggestions">${r.communes.map((c, i) => `
+          <div data-i="${i}"><b>${e(c.nom)}</b>
+            <span class="dep">${e(c.departement || '')} — ${e(c.code)}</span></div>`).join('')}</div>`;
+        liste.querySelectorAll('[data-i]').forEach((el) => {
+          el.onclick = () => choisirCommune(r.communes[+el.dataset.i]);
+        });
+      } catch (err) {
+        if (mien === jeton) etat.textContent = `annuaire indisponible — ${err.message}`;
+      }
+    }, 300);
+  };
+}
+
+async function choisirCommune(c) {
+  saisie.commune = c;
+  document.getElementById('rechCommune').value = c.nom;
+  document.getElementById('listeCommunes').innerHTML = '';
+  document.getElementById('etatCommune').textContent = `${c.nom} — code INSEE ${c.code}`;
+  if (c.codePostal && !saisie.codePostalTerrain) {
+    saisie.codePostalTerrain = c.codePostal;
+    document.getElementById('cpT').value = c.codePostal;
+  }
+  await proposerMairie(c.code);
+}
+
+async function proposerMairie(code) {
+  const etat = document.getElementById('etatMairie');
+  etat.textContent = 'recherche de la mairie…';
+  try {
+    const r = await api(`/api/mairie?code=${encodeURIComponent(code)}`);
+    if (r.etat !== 'trouvee') {
+      etat.textContent = `${r.motif} — saisissez l’adresse à la main.`;
+      return;
+    }
+    // Proposée, jamais imposée : les champs restent modifiables, et rien n'est
+    // écrasé si le notaire a déjà saisi quelque chose.
+    const m = r.mairie;
+    const poser = (id, clef, valeur) => {
+      const champ = document.getElementById(id);
+      if (valeur && !champ.value) { champ.value = valeur; saisie.mairie[clef] = valeur; }
+    };
+    poser('mNom', 'nom', m.nom);
+    poser('mAdr', 'adresse', m.adresse);
+    poser('mComp', 'complement', m.complement);
+    poser('mCp', 'codePostal', m.codePostal);
+    poser('mCom', 'commune', m.commune);
+    etat.textContent = `Proposée par l’${m.source}${r.autres ? ` — ${r.autres} autre(s) fiche(s) pour cette commune` : ''}.`;
+  } catch (err) {
+    etat.textContent = `annuaire indisponible — ${err.message}. Saisissez l’adresse à la main.`;
+  }
+}
+
+/* ---------------------------------------------------------------- actions */
+
+function corpsRequete() {
+  return {
+    reference: saisie.reference,
+    commune: saisie.commune ? { code: saisie.commune.code, nom: saisie.commune.nom } : {},
+    adresse: saisie.adresse,
+    lieuDit: saisie.lieuDit,
+    codePostalTerrain: saisie.codePostalTerrain,
+    parcelles: saisie.parcelles,
+    mairie: saisie.mairie,
+    accepterVoieElectronique: saisie.accepterVoieElectronique,
+    phrase: document.getElementById('phrase').value || undefined,
+    destinataire: saisie.destinataire,
+  };
+}
+
+function afficher(html) {
+  document.getElementById('msg').innerHTML = html;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function listeAvertissements(liste) {
+  if (!liste || !liste.length) return '';
+  return `<div class="avert"><b>À vérifier avant l’envoi</b><ul>${
+    liste.map((a) => `<li>${e(a)}</li>`).join('')}</ul></div>`;
+}
+
+function afficherRefus(err) {
+  const d = err.details || {};
+  const detail = d.manque
+    ? `<ul>${d.manque.map((m) => `<li>${e(m)}</li>`).join('')}</ul>`
+    : d.variables ? `<ul>${d.variables.map((v) => `<li><code>${e(v)}</code></li>`).join('')}</ul>` : '';
+  afficher(`<div class="erreur"><b>${e(err.message)}</b>${detail}</div>`);
+}
+
+async function agir(quoi) {
+  const etat = document.getElementById('etatAction');
+  const boutons = [document.getElementById('btnPdf'), document.getElementById('btnMail')];
+  boutons.forEach((b) => { b.disabled = true; });
+  etat.textContent = quoi === 'pdf' ? 'fabrication du document…' : 'dépôt du brouillon…';
+
+  try {
+    if (quoi === 'pdf') await genererPdf();
+    else await preparerCourriel();
+  } catch (err) {
+    afficherRefus(err);
+  } finally {
+    boutons.forEach((b) => { b.disabled = false; });
+    etat.textContent = '';
+  }
+}
+
+async function genererPdf() {
+  // Cette route rend un PDF, pas du JSON : elle ne passe donc pas par api().
+  const r = await fetch('/api/generer', {
+    method: 'POST',
+    headers: { ...(await entetes()), 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpsRequete()),
+  });
+
+  if (!r.ok) {
+    const corps = await r.json().catch(() => ({}));
+    const err = new Error(corps.erreur || `HTTP ${r.status}`);
+    err.details = corps;
+    throw err;
+  }
+
+  const brut = r.headers.get('X-Certif-Compte-Rendu');
+  const cr = brut ? JSON.parse(new TextDecoder().decode(
+    Uint8Array.from(atob(brut), (c) => c.charCodeAt(0)))) : {};
+
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement('a');
+  a.href = url; a.download = cr.fichier || 'certificat-urbanisme.pdf';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+  const ex = cr.pagination?.exemplaires || [];
+  afficher(`${listeAvertissements(cr.avertissements)}
+    <div class="ok"><b>${e(cr.fichier)}</b> — ${cr.pagination?.total} pages :
+    la lettre en page 1, puis deux exemplaires identiques
+    ${ex.length === 2 ? `(pages ${ex[0].de} à ${ex[0].a} et ${ex[1].de} à ${ex[1].a})` : ''}.
+    ${cr.annexe ? `Annexe de ${cr.annexe.pages} page(s) pour ${cr.annexe.parcelles} parcelles.` : ''}</div>`);
+}
+
+async function preparerCourriel() {
+  const r = await api('/api/courriel', { method: 'POST', body: JSON.stringify(corpsRequete()) });
+
+  if (r.voie === 'eml') {
+    // Le repli n'est pas une panne, mais il ne doit pas passer pour un succès :
+    // on dit pourquoi, et on donne le fichier à ouvrir dans Outlook.
+    const url = URL.createObjectURL(new Blob([r.eml], { type: 'message/rfc822' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = r.nomEml || 'brouillon.eml';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return afficher(`${listeAvertissements(r.avertissements)}
+      <div class="avert"><b>Brouillon téléchargé en .eml</b> — le dépôt direct dans Outlook n’a pas
+      abouti : ${e(r.motif || 'motif inconnu')}. Ouvrez le fichier, il s’ouvrira dans Outlook avec
+      la pièce jointe.</div>`);
+  }
+
+  afficher(`${listeAvertissements(r.avertissements)}
+    <div class="ok"><b>Brouillon déposé dans votre boîte</b>${
+      r.destinataires?.length ? ` — pour ${e(r.destinataires.join(', '))}` : ' — sans destinataire, à compléter'}.
+    ${r.webLink ? `<br><a href="${e(r.webLink)}" target="_blank" rel="noopener">L’ouvrir dans Outlook</a>` : ''}
+    <br>Il n’est pas envoyé : relisez-le, puis cliquez vous-même.</div>`);
+}
+</script>
+</body>
+</html>
