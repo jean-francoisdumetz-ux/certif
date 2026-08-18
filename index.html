@@ -795,6 +795,7 @@ async function lireFichiers(fichiers) {
 
   const lus = [];
   const refus = [];
+  const desaccords = [];
   for (const fichier of fichiers) {
     try {
       const r = await api('/api/importer', {
@@ -802,7 +803,22 @@ async function lireFichiers(fichiers) {
         body: JSON.stringify({ nom: fichier.name, contenu: await enBase64(fichier) }),
       });
       lus.push(r);
-      for (const groupe of r.groupes || []) {
+
+      // LE REGROUPEMENT PAR COMMUNE VIENT DU SERVEUR. S'il ne vient pas, c'est
+      // que lib/import-parcelles.js ou api/importer.js n'est pas à jour sur le
+      // déploiement — et il ne faut PAS le passer sous silence : sans lui, les
+      // parcelles de trois communes se retrouveraient dans un seul bloc, donc
+      // dans une seule demande, adressée à une seule mairie.
+      const groupes = r.groupes && r.groupes.length
+        ? r.groupes
+        : [{ commune: r.commune || null, parcelles: r.parcelles || [] }];
+      if (!r.groupes) {
+        desaccords.push(`${r.fichier} — ce serveur ne renvoie pas le regroupement par commune `
+          + '(lib/import-parcelles.js ou api/importer.js n’est pas à jour). Les parcelles sont '
+          + 'toutes placées dans un seul bloc : vérifiez la commune de chacune avant de générer.');
+      }
+
+      for (const groupe of groupes) {
         for (const p of groupe.parcelles) {
           importLu.push({ ...p, commune: groupe.commune || null, fichier: r.fichier, retenue: true });
         }
@@ -812,7 +828,7 @@ async function lireFichiers(fichiers) {
     }
   }
 
-  montrerLues(lus, refus);
+  montrerLues(lus, [...refus, ...desaccords]);
 }
 
 /** Les parcelles lues, groupées par commune, chacune décochable. */
