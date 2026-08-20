@@ -132,6 +132,11 @@ let mode = 'entra', recette = { passe: null, initiales: null };
 let compteur = 0;
 const saisie = {
   reference: '',
+  // Le sous-dossier de la Data Room où le certificat sera classé à son retour.
+  // Il n'est PAS déduit du fichier importé : le navigateur ne transmet que le
+  // nom du fichier, jamais son dossier parent — et le sous-dossier de
+  // destination n'est pas forcément celui d'où vient le relevé.
+  sousDossier: '',
   communes: [blocVide()],
   accepterVoieElectronique: true,
   destinataire: '',
@@ -255,7 +260,10 @@ function dessiner(message = '') {
 <h2>Dossier</h2>
 <p class="aide">La référence figure au pied de chaque page du formulaire. Quand le dossier compte
 plusieurs communes ou plusieurs unités foncières, chaque demande la porte suffixée — 15151/1-1, /1-2, /2-1.</p>
-<div class="rang"><div><input id="ref" placeholder="15151" value="${e(saisie.reference)}"></div></div>
+<div class="rang">
+<div><input id="ref" placeholder="15151" value="${e(saisie.reference)}"></div>
+<div><input id="sousdossier" placeholder="Sous-dossier Data Room — 0042" value="${e(saisie.sousDossier)}"></div>
+</div>
 
 <div class="colonnes">
 <div>
@@ -310,6 +318,8 @@ plusieurs communes ou plusieurs unités foncières, chaque demande la porte suff
 function brancher() {
   const champ = document.getElementById('ref');
   champ.oninput = () => { saisie.reference = champ.value; };
+  const champSd = document.getElementById('sousdossier');
+  if (champSd) champSd.oninput = () => { saisie.sousDossier = champSd.value; };
   const dest = document.getElementById('dest');
   dest.oninput = () => { saisie.destinataire = dest.value; };
   document.getElementById('voie').onchange = (ev) => {
@@ -1253,7 +1263,11 @@ async function telechargerSommaire(parties) {
   try {
     r = await api('/api/sommaire', {
       method: 'POST',
-      body: JSON.stringify({ reference: saisie.reference, demandes }),
+      body: JSON.stringify({
+        reference: saisie.reference,
+        sousDossier: saisie.sousDossier,
+        demandes,
+      }),
     });
   } catch (err) {
     return `<div class="avert">Le sommaire n’a pas pu être établi — ${e(err.message)}.

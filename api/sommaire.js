@@ -18,7 +18,13 @@ import { protege } from '../lib/verrou.js';
 import { construireSommaire, lignesDuSommaire } from '../lib/sommaire.js';
 import { construireTableur } from '../lib/tableur.js';
 
-const COLONNES = [
+/**
+ * Les colonnes du tableur. Fonction et non constante : le sous-dossier ne
+ * s'ajoute que s'il a été saisi. Une colonne vide sur toute la hauteur d'un
+ * tableau fait douter de ce qu'on aurait dû y lire — même raison que pour le
+ * préfixe et le lieudit dans le sommaire PDF.
+ */
+const colonnesTableur = (sousDossier) => [
   { titre: 'Commune', clef: 'commune', largeur: 24 },
   { titre: 'Préfixe', clef: 'prefixe', largeur: 9 },
   { titre: 'Section', clef: 'section', largeur: 9 },
@@ -26,6 +32,7 @@ const COLONNES = [
   { titre: 'Lieudit', clef: 'lieudit', largeur: 28 },
   { titre: 'Contenance (m²)', clef: 'contenance', largeur: 16 },
   { titre: 'Demande', clef: 'demande', largeur: 15 },
+  ...(sousDossier ? [{ titre: 'Sous-dossier Data Room', clef: 'sousDossier', largeur: 24 }] : []),
   { titre: 'Mairie destinataire', clef: 'mairie', largeur: 40 },
   // Trois colonnes vides, et c'est le but : le tableur sert à SUIVRE. Sans
   // elles, il faudrait les ajouter à la main à chaque dossier.
@@ -43,6 +50,7 @@ export default protege(async (req, res) => {
 
   const lot = {
     reference: String(req.body?.reference || '').trim(),
+    sousDossier: String(req.body?.sousDossier || '').trim().slice(0, 120),
     date: req.body?.date ? new Date(req.body.date) : new Date(),
     demandes: Array.isArray(req.body?.demandes) ? req.body.demandes : [],
   };
@@ -50,7 +58,8 @@ export default protege(async (req, res) => {
 
   try {
     const pdf = await construireSommaire(lot);
-    const lignes = lignesDuSommaire(lot);
+    const COLONNES = colonnesTableur(lot.sousDossier);
+    const lignes = lignesDuSommaire(lot).map((l) => ({ ...l, sousDossier: lot.sousDossier }));
     const tableur = construireTableur({
       nom: 'Sommaire',
       colonnes: COLONNES,
