@@ -14,19 +14,23 @@
   ],
   "functions": {
     "api/generer.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@pdf-lib/fontkit/**"
     },
     "api/courriel.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@pdf-lib/fontkit/**"
     },
     "api/plan.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@pdf-lib/fontkit/**"
     },
     "api/unites.js": {
       "maxDuration": 60
     },
     "api/sommaire.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "node_modules/@pdf-lib/fontkit/**"
     },
     "api/importer.js": {
       "maxDuration": 30,
@@ -42,7 +46,8 @@
       "maxDuration": 15
     },
     "api/sante.js": {
-      "maxDuration": 10
+      "maxDuration": 10,
+      "includeFiles": "node_modules/@pdf-lib/fontkit/**"
     }
   },
   "regions": [
