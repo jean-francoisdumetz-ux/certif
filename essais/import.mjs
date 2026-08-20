@@ -43,7 +43,12 @@ console.log('\n— une ligne de jetons —');
   const p = lireJetons(['26', 'AB', '0012', '14', 'LE PETIT BELGIQUE', '0154', '01', 'S', 'T', '00', '08', '42', '12,45']);
   verifier('section et numéro', p && p.section === 'AB' && p.numero === '12');
   verifier('contenance prise dans le triplet', p?.contenance === '842', p?.contenance);
-  verifier('lieudit repéré', p?.lieudit === 'LE PETIT BELGIQUE', p?.lieudit);
+  // Le code garde le numero de voirie, et son commentaire dit pourquoi :
+  // « 11 ALL DU TENNIS » vaut mieux que « ALL », un lieu tronque n'aide
+  // personne a retrouver le terrain. L'essai attendait l'inverse : il etait
+  // anterieur a cette decision. Aligne le 20/08/2026.
+  verifier('lieudit repéré, numéro de voirie compris',
+    p?.lieudit === '14 LE PETIT BELGIQUE', p?.lieudit);
   // « 26 » précède la section mais n'est pas un préfixe : trois chiffres exigés.
   verifier('l’année n’est pas prise pour un préfixe', p?.prefixe === '', `« ${p?.prefixe} »`);
 }
