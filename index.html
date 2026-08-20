@@ -258,10 +258,12 @@ function dessiner(message = '') {
 <div id="msg">${message}</div>
 
 <h2>Dossier</h2>
-<p class="aide">La référence figure au pied de chaque page du formulaire. Quand le dossier compte
-plusieurs communes ou plusieurs unités foncières, chaque demande la porte suffixée — 15151/1-1, /1-2, /2-1.</p>
+<p class="aide">La référence est le <b>numéro de groupe</b> de la Data Room, sur quatre chiffres —
+décision du 19/08/2026. Elle figure au pied de chaque page du formulaire ; quand le dossier compte
+plusieurs communes ou plusieurs unités foncières, chaque demande la porte suffixée — 0042/1-1, /1-2, /2-1.
+Le certificat revenu se classera sous ce numéro : 0042CU suivi de la parcelle.</p>
 <div class="rang">
-<div><input id="ref" placeholder="15151" value="${e(saisie.reference)}"></div>
+<div><input id="ref" placeholder="Numéro de groupe — 0042" inputmode="numeric" maxlength="4" value="${e(saisie.reference)}"></div>
 <div><input id="sousdossier" placeholder="Sous-dossier Data Room — 0042" value="${e(saisie.sousDossier)}"></div>
 </div>
 
@@ -317,7 +319,13 @@ plusieurs communes ou plusieurs unités foncières, chaque demande la porte suff
 
 function brancher() {
   const champ = document.getElementById('ref');
-  champ.oninput = () => { saisie.reference = champ.value; };
+  champ.oninput = () => { saisie.reference = champ.value.replace(/[^0-9]/g, ''); champ.value = saisie.reference; };
+  // Un numero saisi « 42 » devient « 0042 » quand on quitte le champ : les
+  // zeros de tete sont ce qui aligne le tri des fichiers sur le tri des
+  // groupes, et ce qu'Excel mange en premier.
+  champ.onblur = () => {
+    if (saisie.reference) { saisie.reference = saisie.reference.padStart(4, '0'); champ.value = saisie.reference; }
+  };
   const champSd = document.getElementById('sousdossier');
   if (champSd) champSd.oninput = () => { saisie.sousDossier = champSd.value; };
   const dest = document.getElementById('dest');

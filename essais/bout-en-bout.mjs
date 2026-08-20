@@ -38,7 +38,9 @@ function refus(intitule, corps, code, dansLeMessage) {
 }
 
 const COMPLET = {
-  reference: '2026-0117',
+  // Numero de groupe Data Room, 4 chiffres — decision du 19/08/2026. Les
+  // anciens formats (2026-0117, 15151) sont refuses par preparer.js depuis.
+  reference: '0117',
   commune: { code: '59355', nom: 'Lomme' },
   adresse: '14 rue du Petit Belgique',
   codePostalTerrain: '59160',
@@ -64,10 +66,10 @@ refus('contenance non numérique', {
 refus('sans adresse de mairie', { ...COMPLET, mairie: { nom: 'Mairie' } }, 400, 'mairie');
 // UN BLOC VIDE SE DIT EN UNE LIGNE. Énumérer commune, parcelles et mairie d'une
 // saisie pas commencée donne trois oublis là où il n'y en a aucun.
-refus('écran vierge', { reference: '15151', communes: [{ commune: {}, parcelles: [], mairie: {} }] },
+refus('écran vierge', { reference: '0042', communes: [{ commune: {}, parcelles: [], mairie: {} }] },
   400, 'la saisie est vide');
 refus('un bloc vide parmi d’autres', {
-  reference: '15151',
+  reference: '0042',
   communes: [
     { ...COMPLET, commune: { code: '59355', nom: 'Lomme' } },
     { commune: {}, parcelles: [], mairie: {} },
@@ -89,7 +91,7 @@ verifier('cinq feuilles en recto verso', r.pagination.feuilles === 5);
 verifier('deux exemplaires de quatre pages', r.pagination.parExemplaire === 4);
 verifier('une seule page blanche', r.pagination.blanches === 1, `${r.pagination.blanches}`);
 verifier('annexe déclenchée', r.annexe?.parcelles === 5);
-verifier('nom de fichier', r.fichier === 'CU_LOMME_2026-0117.pdf', r.fichier);
+verifier('nom de fichier', r.fichier === 'CU_LOMME_0117.pdf', r.fichier);
 verifier('plan signalé manquant', r.avertissements.some((a) => a.includes('plan de situation')));
 verifier('absence de signature signalée', r.avertissements.some((a) => a.includes('non signées')));
 // Cet essai tourne hors ligne : le cadastre ne répond pas, donc la contiguïté
@@ -136,13 +138,13 @@ console.log('\n— deux unités foncières : deux demandes —');
   const lot = await preparerDossier(trois, undefined, { cadastre, sansPlan: true });
   verifier('deux demandes produites', lot.demandes.length === 2, `${lot.demandes.length}`);
   verifier('références suffixées',
-    lot.demandes.map((x) => x.reference).join(' ') === '2026-0117/1 2026-0117/2',
+    lot.demandes.map((x) => x.reference).join(' ') === '0117/1 0117/2',
     lot.demandes.map((x) => x.reference).join(' '));
   verifier('la paire contiguë tient dans la première',
     lot.demandes[0].parcelles.length === 2);
   verifier('l’isolée fait la seconde', lot.demandes[1].parcelles.length === 1);
   verifier('nom de fichier qui annonce le lot',
-    lot.fichier === 'CU_LOMME_2026-0117_2-demandes.pdf', lot.fichier);
+    lot.fichier === 'CU_LOMME_0117_2-demandes.pdf', lot.fichier);
 
   // Chaque demande : une lettre d'une page complétée à deux, puis DEUX
   // exemplaires de trois pages utiles complétées à quatre — soit 2 + 8 = 10
@@ -161,7 +163,7 @@ console.log('\n— deux unités foncières : deux demandes —');
     lot.avertissements.some((a) => a.startsWith('2 demandes produites')));
   verifier('chaque avertissement de plan nomme sa demande',
     lot.avertissements.filter((a) => a.includes('plan de situation')).length === 2
-    && lot.avertissements.some((a) => a.startsWith('demande 2026-0117/2 — ')));
+    && lot.avertissements.some((a) => a.startsWith('demande 0117/2 — ')));
 
   // Les consignes : c'est là que l'assistante lit ce qu'elle doit agrafer.
   const cl = consignes(trois, lot.pagination, lot.fichier, { demandes: lot.demandes });
@@ -197,7 +199,7 @@ console.log('\n— plusieurs communes, plusieurs mairies —');
   // dans deux communes, dont l'une compte deux îlots séparés. Trois demandes,
   // trois lettres, trois plis, DEUX adresses.
   const lot = demandeDepuisRequete({
-    reference: '15151',
+    reference: '0042',
     accepterVoieElectronique: true,
     date: '2026-08-18T00:00:00Z',
     communes: [
@@ -256,13 +258,13 @@ console.log('\n— plusieurs communes, plusieurs mairies —');
   const r = await preparerDossier(lot, undefined, { cadastres, sansPlan: true });
   verifier('trois demandes', r.demandes.length === 3, `${r.demandes.length}`);
   verifier('références commune-unité',
-    r.demandes.map((x) => x.reference).join(' ') === '15151/1-1 15151/1-2 15151/2-1',
+    r.demandes.map((x) => x.reference).join(' ') === '0042/1-1 0042/1-2 0042/2-1',
     r.demandes.map((x) => x.reference).join(' '));
   verifier('la troisième relève de Lomme', r.demandes[2].commune === 'Lomme');
   verifier('chaque demande porte SON adresse de mairie',
     r.demandes[0].mairie.includes('59650') && r.demandes[2].mairie.includes('59160'));
   verifier('le nom de fichier compte les communes',
-    r.fichier === 'CU_2-COMMUNES_15151_3-demandes.pdf', r.fichier);
+    r.fichier === 'CU_2-COMMUNES_0042_3-demandes.pdf', r.fichier);
   verifier('deux communes rendues', r.communes.length === 2);
   verifier('la première en donne deux', r.communes[0].demandes === 2);
 

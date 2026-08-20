@@ -18,6 +18,18 @@ export default async function (req, res) {
 
   return res.status(200).json({
     outil: 'CERTIF',
+    // Le trio qui a manque pendant la panne du 20/08 — 1 h 40 a tester le
+    // domaine public sans savoir quel deploiement il servait. `deploiement`
+    // change a CHAQUE deploiement, rejeu compris : c'est lui qui dit si une
+    // correction est en ligne. `commit` designe le code ; un Redeploy garde le
+    // meme. La region se constate ici a l'execution, pas dans un reglage.
+    execution: {
+      region: process.env.VERCEL_REGION || null,
+      environnement: process.env.VERCEL_ENV || null,
+      commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || null,
+      deploiement: process.env.VERCEL_DEPLOYMENT_ID || null,
+      node: process.version,
+    },
     formulaire: { millesime: MILLESIME, gabarit: gabaritPresent() },
     identite: { complete: manquantes.length === 0, aRenseigner: manquantes },
     documents: {
