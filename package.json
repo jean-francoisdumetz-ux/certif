@@ -1,15 +1,17 @@
 {
-  "name": "matrice",
+  "name": "certif",
   "version": "0.1.0",
   "private": true,
-  "description": "MATRICE — demandes d'extrait de matrice cadastrale (FIDAL Notaires)",
+  "description": "CERTIF — demandes de certificat d'urbanisme d'information (FIDAL Notaires)",
   "type": "module",
   "engines": {
     "node": "24.x"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "fflate": "^0.8.3",
     "jose": "^5.9.6",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38"
   }
 }
